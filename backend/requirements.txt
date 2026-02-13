@@ -19,5 +19,5 @@ alembic
 # LLM Integration (placeholder for now, specific library depends on LLM chosen)
 # For example, if using OpenAI:
 # openai
-# For Google Cloud Vertex AI:
-# google-cloud-aiplatform
+# LLM Integration (Google Generative AI)
+google-generativeai

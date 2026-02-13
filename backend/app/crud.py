@@ -7,7 +7,7 @@ away the direct SQLAlchemy session management from the API endpoints.
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from app import models, schemas
 
@@ -54,6 +54,19 @@ def create_aggregated_cost_data(db: Session, cost_data: schemas.AggregatedCostDa
     db.commit()
     db.refresh(db_cost_data)
     return db_cost_data
+
+def bulk_create_aggregated_cost_data(db: Session, cost_data_list: List[schemas.AggregatedCostDataCreate]):
+    """
+    Performs a bulk insertion of multiple aggregated cost data records into the database.
+    This is more efficient than inserting records one by one.
+    """
+    db_objects = [models.AggregatedCostData(**item.model_dump()) for item in cost_data_list]
+    db.add_all(db_objects)
+    db.commit()
+    # Refreshing all objects after bulk insert might be resource-intensive for very large lists.
+    # For simplicity, we'll return the list of created objects without individual refreshes.
+    return db_objects
+
 
 # --- CRUD for LLMInsight ---
 def get_llm_insight_by_id(db: Session, insight_id: int):

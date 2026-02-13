@@ -6,36 +6,38 @@ version: '3.8'
 
 services:
   # --- FastAPI Backend Service ---
-  # backend:
-  #   build:
-  #     context: . # Build from the current directory (where Dockerfile is located)
-  #     dockerfile: Dockerfile # Specify the Dockerfile to use
-  #   container_name: finops_backend
-  #   # Mount the current directory into the container.
-  #   # This allows for live code changes during development without rebuilding the image.
-  #   # In production, you would typically not mount the code, but copy it during build.
-  #   # For Windows hosts, make sure your Docker Desktop is configured for file sharing.
-  #   volumes:
-  #     - ./app:/app/app # Mount the app source code
-  #     - ./.env:/app/.env # Mount the .env file for environment variables
-  #     - ./service-account-file.json:/app/service-account-file.json # Mount the service account file
-  #   ports:
-  #     - "8000:8000" # Map host port 8000 to container port 8000
-  #   environment:
-  #     # Pass environment variables directly to the container if not using .env file directly
-  #     # or to override specific values in the .env file.
-  #     # DATABASE_URL: "postgresql://user:password@db:5432/finops_db"
-  #     # GOOGLE_APPLICATION_CREDENTIALS: "/app/service-account-file.json"
-  #     # BIGQUERY_BILLING_TABLE_ID: "your_gcp_project.your_bigquery_dataset.gcp_billing_export_v1_xxxxxx"
-  #     # LLM_PROVIDER: "mock"
-  #     # LLM_API_KEY: "your_llm_api_key_here"
-  #   depends_on:
-  #     - db # Ensure the database service starts before the backend
-  #   networks:
-  #     - finops-network
-  #   # Use command to override the CMD in Dockerfile for development purposes.
-  #   # Enables auto-reloading of the FastAPI application on code changes.
-  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  backend:
+    build:
+      context: . # Build from the current directory (where Dockerfile is located)
+      dockerfile: Dockerfile # Specify the Dockerfile to use
+    container_name: finops_backend
+    # Mount the current directory into the container.
+    # This allows for live code changes during development without rebuilding the image.
+    # In production, you would typically not mount the code, but copy it during build.
+    # For Windows hosts, make sure your Docker Desktop is configured for file sharing.
+    volumes:
+      - ./app:/app/app # Mount the app source code
+      - ./.env:/app/.env # Mount the .env file for environment variables
+      - ./service-account-file.json:/app/service-account-file.json # Mount the service account file
+    ports:
+      - "8000:8000" # Map host port 8000 to container port 8000
+    environment:
+      # Pass environment variables directly to the container if not using .env file directly
+      # or to override specific values in the .env file.
+      DATABASE_URL: "postgresql://user:password@db:5432/finops_db"
+      SQLALCHEMY_ECHO: "True"
+      GOOGLE_APPLICATION_CREDENTIALS: "/app/service-account-file.json"
+      # GOOGLE_APPLICATION_CREDENTIALS: "service-account-file.json"
+      # BIGQUERY_BILLING_TABLE_ID: "your_gcp_project.your_bigquery_dataset.gcp_billing_export_v1_xxxxxx"
+      # LLM_PROVIDER: "mock"
+      # LLM_API_KEY: "your_llm_api_key_here"
+    depends_on:
+      - db # Ensure the database service starts before the backend
+    networks:
+      - finops-network
+    # Use command to override the CMD in Dockerfile for development purposes.
+    # Enables auto-reloading of the FastAPI application on code changes.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # --- PostgreSQL Database Service ---
   db:

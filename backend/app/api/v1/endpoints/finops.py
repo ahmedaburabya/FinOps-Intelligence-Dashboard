@@ -1,30 +1,33 @@
 """
 API endpoints for FinOps data and LLM insights.
 This module defines the routes and their corresponding logic for
-interacting with aggregated cost data and AI-generated insights.
+interacting with aggregated cost data, AI-generated insights, and BigQuery.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import datetime
+from typing import List, Optional, Any, Dict
+from datetime import datetime, date
+import asyncio # Import asyncio for running blocking calls in a thread pool
 
 from app import crud, schemas
 from app.database import get_db
+from app.services.llm import llm_service
+from app.services.bigquery import bigquery_service # Import the bigquery_service instance
 
 # APIRouter creates path operations for FinOps module
 router = APIRouter()
 
-# --- Aggregated Cost Data Endpoints ---
+# --- Aggregated Cost Data Endpoints (from PostgreSQL) ---
 @router.post("/aggregated-cost", response_model=schemas.AggregatedCostData, status_code=201, 
-             summary="Create new aggregated cost data record",
+             summary="Create new aggregated cost data record (into PostgreSQL)",
              response_description="The newly created aggregated cost data record.")
 def create_aggregated_cost_data(
     cost_data: schemas.AggregatedCostDataCreate, 
     db: Session = Depends(get_db)
 ):
     """
-    Creates a new record of aggregated cloud cost data.
+    Creates a new record of aggregated cloud cost data in the PostgreSQL database.
     
     This endpoint allows the submission of processed and aggregated cost metrics
     from various dimensions (Service, Project, SKU, Time-period) into the system.
@@ -42,11 +45,11 @@ def create_aggregated_cost_data(
     return db_cost_data
 
 @router.get("/aggregated-cost/{cost_data_id}", response_model=schemas.AggregatedCostData,
-            summary="Retrieve aggregated cost data by ID",
+            summary="Retrieve aggregated cost data by ID (from PostgreSQL)",
             response_description="The aggregated cost data record matching the provided ID.")
 def read_aggregated_cost_data(cost_data_id: int, db: Session = Depends(get_db)):
     """
-    Retrieves a single aggregated cloud cost data record by its unique identifier.
+    Retrieves a single aggregated cloud cost data record by its unique identifier from PostgreSQL.
     
     - **cost_data_id**: The unique ID of the aggregated cost data record.
     """
@@ -56,7 +59,7 @@ def read_aggregated_cost_data(cost_data_id: int, db: Session = Depends(get_db)):
     return db_cost_data
 
 @router.get("/aggregated-cost", response_model=List[schemas.AggregatedCostData],
-            summary="Retrieve multiple aggregated cost data records with filters",
+            summary="Retrieve multiple aggregated cost data records with filters (from PostgreSQL)",
             response_description="A list of aggregated cost data records matching the filters.")
 def read_aggregated_cost_data_list(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -69,7 +72,7 @@ def read_aggregated_cost_data_list(
     db: Session = Depends(get_db)
 ):
     """
-    Retrieves a list of aggregated cloud cost data records.
+    Retrieves a list of aggregated cloud cost data records from PostgreSQL.
     Supports pagination and filtering by service, project, SKU, and time range.
     """
     cost_data_list = crud.get_aggregated_cost_data(
@@ -84,16 +87,16 @@ def read_aggregated_cost_data_list(
     )
     return cost_data_list
 
-# --- FinOps Overview Endpoints ---
+# --- FinOps Overview Endpoints (from PostgreSQL) ---
 @router.get("/overview", 
-             summary="Get high-level FinOps overview (MTD Spend, Burn Rate)",
+             summary="Get high-level FinOps overview (MTD Spend, Burn Rate from PostgreSQL)",
              response_description="Key financial metrics including Month-to-Date spend and projected burn rate.")
 def get_finops_overview(
     project: Optional[str] = Query(None, description="Optional: Filter overview by Google Cloud project ID"),
     db: Session = Depends(get_db)
 ):
     """
-    Provides a high-level overview of financial metrics, including:
+    Provides a high-level overview of financial metrics from PostgreSQL, including:
     - **Month-to-Date (MTD) Spend**: Total cost incurred in the current calendar month.
     - **Burn Rate**: An estimated monthly spend based on recent daily average consumption (e.g., last 30 days).
     
@@ -107,7 +110,45 @@ def get_finops_overview(
         "burn_rate_estimated_monthly": burn_rate
     }
 
-# --- LLM Insight Endpoints ---
+# --- LLM Integration Endpoints ---
+@router.post("/generate-spend-summary", response_model=schemas.LLMInsight, status_code=201,
+             summary="Generate an AI-driven spend summary using LLM",
+             response_description="The newly created LLM insight record containing the spend summary.")
+async def generate_ai_spend_summary( # Changed to async
+    project: Optional[str] = Query(None, description="Optional: Filter data by Google Cloud project ID for summary generation"),
+    start_date: Optional[datetime] = Query(None, description="Optional: Start date for the period to summarize"),
+    end_date: Optional[datetime] = Query(None, description="Optional: End date for the period to summarize"),
+    db: Session = Depends(get_db)
+):
+    """
+    Triggers the LLM to generate a natural language summary of cloud spend for a given period and/or project.
+    The generated summary is stored as an LLMInsight and returned.
+    """
+    # 1. Retrieve relevant aggregated cost data from PostgreSQL
+    aggregated_data = crud.get_aggregated_cost_data(
+        db=db, 
+        project=project, 
+        start_date=start_date, 
+        end_date=end_date,
+        limit=1000 # Limit data passed to LLM to avoid excessive context or cost
+    )
+
+    if not aggregated_data:
+        raise HTTPException(status_code=404, detail="No aggregated cost data found for the specified criteria to generate a summary.")
+
+    # 2. Call the LLM service to generate the summary
+    summary_text = await llm_service.generate_spend_summary(aggregated_data) # Added await
+
+    # 3. Store the generated insight in the database
+    insight_create = schemas.LLMInsightCreate(
+        insight_type="spend_summary",
+        insight_text=summary_text,
+        related_finops_data_id=None # Can be linked to specific data if aggregated
+    )
+    db_insight = crud.create_llm_insight(db=db, insight=insight_create)
+    
+    return db_insight
+
 @router.post("/llm-insight", response_model=schemas.LLMInsight, status_code=201,
              summary="Create a new LLM-generated insight",
              response_description="The newly created LLM insight record.")
@@ -129,43 +170,84 @@ def create_llm_insight(
     db_insight = crud.create_llm_insight(db=db, insight=insight)
     return db_insight
 
-@router.get("/llm-insight/{insight_id}", response_model=schemas.LLMInsight,
-            summary="Retrieve LLM-generated insight by ID",
-            response_description="The LLM insight record matching the provided ID.")
-def read_llm_insight(insight_id: int, db: Session = Depends(get_db)):
+# --- BigQuery Exploration & Ingestion Endpoints ---
+@router.get("/bigquery/datasets", summary="List all accessible BigQuery datasets", response_model=List[str])
+async def list_gcp_bigquery_datasets(): # Changed to async
     """
-    Retrieves a single AI-generated insight record by its unique identifier.
-    
-    - **insight_id**: The unique ID of the LLM insight record.
+    Retrieves a list of all BigQuery datasets that the configured service account
+    has access to in the GCP project.
     """
-    db_insight = crud.get_llm_insight_by_id(db=db, insight_id=insight_id)
-    if db_insight is None:
-        raise HTTPException(status_code=404, detail="LLM insight not found")
-    return db_insight
+    try:
+        loop = asyncio.get_running_loop()
+        datasets = await loop.run_in_executor(None, bigquery_service.list_bigquery_datasets)
+        return datasets
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list BigQuery datasets: {e}")
 
-@router.get("/llm-insight", response_model=List[schemas.LLMInsight],
-            summary="Retrieve multiple LLM-generated insights with filters",
-            response_description="A list of LLM insights matching the filters.")
-def read_llm_insights_list(
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
-    insight_type: Optional[str] = Query(None, description="Filter by type of insight"),
-    related_finops_data_id: Optional[int] = Query(None, description="Filter by related aggregated cost data ID"),
-    start_date: Optional[datetime] = Query(None, description="Filter insights generated from this date (inclusive)"),
-    end_date: Optional[datetime] = Query(None, description="Filter insights generated up to this date (inclusive)"),
+@router.get("/bigquery/datasets/{dataset_id}/tables", summary="List all tables in a BigQuery dataset", response_model=List[str])
+async def list_gcp_bigquery_tables(dataset_id: str): # Changed to async
+    """
+    Retrieves a list of all tables within a specified BigQuery dataset that the
+    configured service account has access to.
+    - **dataset_id**: The ID of the BigQuery dataset.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        tables = await loop.run_in_executor(None, bigquery_service.list_bigquery_tables, dataset_id)
+        return tables
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list BigQuery tables in dataset '{dataset_id}': {e}")
+
+@router.get("/bigquery/datasets/{dataset_id}/tables/{table_id}/data", summary="Read data directly from a BigQuery table", response_model=List[Dict[str, Any]])
+async def read_bigquery_table_data(
+    dataset_id: str,
+    table_id: str,
+    limit: Optional[int] = Query(None, ge=1, description="Optional: Limit the number of rows to return.")
+):
+    """
+    Reads a limited number of rows directly from a specified BigQuery table.
+    - **dataset_id**: The ID of the BigQuery dataset.
+    - **table_id**: The ID of the BigQuery table.
+    - **limit**: Maximum number of rows to return.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        data = await loop.run_in_executor(None, bigquery_service.read_bigquery_table_data, dataset_id, table_id, limit)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read data from BigQuery table '{dataset_id}.{table_id}': {e}")
+
+@router.post("/bigquery/ingest-billing-data", status_code=201, 
+             summary="Ingest BigQuery billing data into PostgreSQL",
+             response_description="Number of records ingested into PostgreSQL.")
+async def ingest_bigquery_billing_data( # Changed to async
+    dataset_id: str = Query(..., description="BigQuery dataset ID, e.g., 'finopsDS'"),
+    table_id: str = Query(..., description="BigQuery table ID, e.g., 'gcp_billing_export_resource_v1_...'"),
+    start_date: Optional[date] = Query(None, description="Optional: Start date for billing data ingestion (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Optional: End date for billing data ingestion (YYYY-MM-DD)"),
     db: Session = Depends(get_db)
 ):
     """
-    Retrieves a list of AI-generated insights.
-    Supports pagination and filtering by insight type, related FinOps data, and date range.
+    Fetches billing data from the specified BigQuery table and ingests it into
+    the PostgreSQL `aggregated_cost_data` table.
     """
-    llm_insights_list = crud.get_llm_insights(
-        db=db, 
-        skip=skip, 
-        limit=limit, 
-        insight_type=insight_type, 
-        related_finops_data_id=related_finops_data_id,
-        start_date=start_date,
-        end_date=end_date
-    )
-    return llm_insights_list
+    try:
+        loop = asyncio.get_running_loop()
+        billing_data = await loop.run_in_executor(
+            None, 
+            bigquery_service.get_billing_data_for_aggregation,
+            dataset_id,
+            table_id,
+            start_date,
+            end_date
+        )
+        
+        ingested_count = 0
+        if billing_data:
+            # CRUD operations are blocking, so also run in executor
+            await loop.run_in_executor(None, crud.bulk_create_aggregated_cost_data, db, billing_data)
+            ingested_count = len(billing_data)
+        
+        return {"message": f"Successfully ingested {ingested_count} records from BigQuery into PostgreSQL."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to ingest BigQuery data: {e}")

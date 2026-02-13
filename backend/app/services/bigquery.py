@@ -1,7 +1,7 @@
 """
 BigQuery integration service for fetching and processing Google Cloud billing data.
 This module handles authentication with Google Cloud using a service account,
-connects to BigQuery, and provides functions to query the billing export dataset
+conne2cts to BigQuery, and provides functions to query the billing export dataset
 and transform the data into a usable format.
 """
 
@@ -21,19 +21,11 @@ logger = logging.getLogger(__name__)
 # This file is essential for authenticating with Google Cloud services like BigQuery.
 GOOGLE_APPLICATION_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-# Placeholder for your BigQuery billing export table ID.
-# This should be in the format: `project_id.dataset_id.gcp_billing_export_v1_<billing_account_id>`
-# You MUST replace this with your actual BigQuery billing export table ID.
-BIGQUERY_BILLING_TABLE_ID = os.getenv("BIGQUERY_BILLING_TABLE_ID") 
-
 if not GOOGLE_APPLICATION_CREDENTIALS_PATH:
     raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. "
                      "Please provide the path to your service account key file.")
 if not os.path.exists(GOOGLE_APPLICATION_CREDENTIALS_PATH):
     raise FileNotFoundError(f"Service account key file not found at: {GOOGLE_APPLICATION_CREDENTIALS_PATH}")
-if not BIGQUERY_BILLING_TABLE_ID:
-    logger.warning("BIGQUERY_BILLING_TABLE_ID environment variable is not set. "
-                   "BigQuery queries will not be functional until configured.")
 
 
 class BigQueryService:
@@ -93,8 +85,66 @@ class BigQueryService:
             logger.error(f"Failed to execute BigQuery query: {e}")
             raise
 
+    def _table_has_column(self, project_id: str, dataset_id: str, table_id: str, column_name: str) -> bool:
+        """
+        Checks if a BigQuery table has a specific column using INFORMATION_SCHEMA.
+        """
+        query = f"""
+        SELECT EXISTS(
+            SELECT 1
+            FROM `{project_id}`.{dataset_id}.INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = '{table_id}' AND column_name = '{column_name}'
+        );
+        """
+        try:
+            results = self.execute_query(query)
+            # The result is typically a list with one dictionary, with a boolean value
+            return results[0]['f0_'] if results else False
+        except Exception as e:
+            logger.error(f"Error checking for column '{column_name}' in table '{table_id}': {e}")
+            return False
+
+    def list_bigquery_datasets(self) -> List[str]:
+        """
+        Lists all datasets in the project accessible by the service account.
+        """
+        try:
+            datasets = list(self.client.list_datasets())
+            logger.info(f"Found {len(datasets)} datasets.")
+            return [ds.dataset_id for ds in datasets]
+        except Exception as e:
+            logger.error(f"Error listing BigQuery datasets: {e}")
+            raise
+
+    def list_bigquery_tables(self, dataset_id: str) -> List[str]:
+        """
+        Lists all tables within a specified BigQuery dataset.
+        """
+        try:
+            dataset_ref = self.client.dataset(dataset_id)
+            tables = list(self.client.list_tables(dataset_ref))
+            logger.info(f"Found {len(tables)} tables in dataset '{dataset_id}'.")
+            return [table.table_id for table in tables]
+        except Exception as e:
+            logger.error(f"Error listing BigQuery tables in dataset '{dataset_id}': {e}")
+            raise
+
+    def read_bigquery_table_data(self, dataset_id: str, table_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Reads data directly from a specified BigQuery table.
+        """
+        bigquery_table_full_id = f"{self.client.project}.{dataset_id}.{table_id}"
+        query = f"SELECT * FROM `{bigquery_table_full_id}`"
+        if limit is not None:
+            query += f" LIMIT {limit}"
+        
+        logger.info(f"Executing BigQuery query to read data from table {bigquery_table_full_id}")
+        return self.execute_query(query)
+
     def get_billing_data_for_aggregation(
         self, 
+        dataset_id: str,
+        table_id: str,
         start_date: Optional[date] = None, 
         end_date: Optional[date] = None
     ) -> List[schemas.AggregatedCostDataCreate]:
@@ -105,15 +155,50 @@ class BigQueryService:
         and `usage_start_time` (truncated to daily for `time_period`).
         
         Args:
+            dataset_id: The ID of the BigQuery dataset containing the billing data.
+            table_id: The ID of the BigQuery table containing the billing data.
             start_date: Optional start date for filtering billing data.
             end_date: Optional end date for filtering billing data.
             
         Returns:
             A list of Pydantic `AggregatedCostDataCreate` objects.
         """
-        if not BIGQUERY_BILLING_TABLE_ID:
-            logger.error("BIGQUERY_BILLING_TABLE_ID is not configured. Cannot fetch billing data.")
-            return []
+        # Construct the full table ID dynamically
+        bigquery_billing_table_full_id = f"{self.client.project}.{dataset_id}.{table_id}"
+        
+        # Determine the date column for filtering based on table partitioning
+        use_partition_date = self._table_has_column(
+            project_id=self.client.project,
+            dataset_id=dataset_id,
+            table_id=table_id,
+            column_name="_PARTITIONDATE"
+        )
+        
+        date_filter_column = "_PARTITIONDATE" if use_partition_date else "usage_start_time"
+        logger.info(f"Using {date_filter_column} for date filtering in BigQuery query.")
+
+        # Build the WHERE clause dynamically
+        where_clauses = ["cost_type = 'USAGE'"] # Always filter by cost_type
+
+        if start_date:
+            where_clauses.append(f"{date_filter_column} >= '{start_date.strftime('%Y-%m-%d')}'")
+        else:
+            # If no start_date, default to a very old date for filtering partitioned tables,
+            # or just don't add a start filter for usage_start_time
+            if use_partition_date:
+                where_clauses.append(f"{date_filter_column} >= '1970-01-01'")
+
+        if end_date:
+            where_clauses.append(f"{date_filter_column} <= '{end_date.strftime('%Y-%m-%d')}'")
+        else:
+            # If no end_date, default to today for filtering partitioned tables,
+            # or just don't add an end filter for usage_start_time
+            if use_partition_date:
+                where_clauses.append(f"{date_filter_column} <= '{datetime.now().strftime('%Y-%m-%d')}'")
+
+        where_clause_str = " AND ".join(where_clauses)
+        if where_clause_str:
+            where_clause_str = f"WHERE {where_clause_str}"
 
         # Define the base query for aggregation
         query = f"""
@@ -127,18 +212,15 @@ class BigQueryService:
             SUM(usage.amount) AS usage_amount,
             usage.unit AS usage_unit
         FROM
-            `{BIGQUERY_BILLING_TABLE_ID}`
-        WHERE
-            _PARTITIONDATE >= '{start_date.strftime('%Y-%m-%d') if start_date else '1970-01-01'}'
-            AND _PARTITIONDATE <= '{end_date.strftime('%Y-%m-%d') if end_date else datetime.now().strftime('%Y-%m-%d')}'
-            AND cost_type = 'USAGE' -- Filter out taxes, adjustments, etc.
+            `{bigquery_billing_table_full_id}`
+        {where_clause_str}
         GROUP BY
             service, project, sku, time_period, currency, usage.unit
         ORDER BY
             time_period, project, service, sku
         """
         
-        logger.info(f"Executing BigQuery billing aggregation query for {start_date} to {end_date}")
+        logger.info(f"Executing BigQuery billing aggregation query for {start_date} to {end_date} from table {bigquery_billing_table_full_id}")
         results = self.execute_query(query)
         
         aggregated_data = []

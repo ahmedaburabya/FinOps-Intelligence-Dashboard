@@ -10,7 +10,7 @@ This project implements the backend for a production-grade FinOps Intelligence T
 *   **Backend:** Python 3.x, FastAPI
 *   **Database:** PostgreSQL (for aggregated data and LLM insights)
 *   **Cloud Data Source:** Google Cloud BigQuery (for billing export)
-*   **AI/LLM:** Integrated via a generic interface (e.g., OpenAI, Vertex AI, Anthropic - specific provider to be configured)
+*   **AI/LLM:** Google Generative AI (Gemini Model) integrated via API Key for AI-driven insights.
 *   **Dependency Management:** `pip` with `requirements.txt`
 *   **Database Migrations:** Alembic
 *   **Environment Management:** `python-dotenv`
@@ -34,7 +34,7 @@ python -m venv venv
 # On Windows (PowerShell):
 .\venv\Scripts\Activate.ps1
 # On Windows (Command Prompt):
-.\venv\Scripts\activate.bat
+.\venv\Scripts/activate.bat
 # On macOS/Linux:
 source venv/bin/activate
 ```
@@ -54,13 +54,15 @@ Create a `.env` file in the `backend/` directory. This file will store your data
 DATABASE_URL="postgresql://user:password@localhost:5432/finops_db"
 SQLALCHEMY_ECHO="False" # Set to "True" to log SQL statements
 
-# Path to your Google Cloud service account key file
+# Path to your Google Cloud service account key file (primarily for BigQuery authentication)
 # Ensure this file is kept secure and not committed to public repositories.
 GOOGLE_APPLICATION_CREDENTIALS="service-account-file.json"
 
-# Placeholder for LLM API Key (e.g., OpenAI, Google Cloud Vertex AI)
-# LLM_API_KEY="your_llm_api_key_here"
-# LLM_MODEL_NAME="gpt-4o" # or "gemini-1.5-flash-latest"
+# Google Generative AI / Vertex AI (via API Key) Configuration
+GOOGLE_API_KEY="YOUR_GCP_API_KEY_HERE" # Replace with your actual Google API Key
+GCP_PROJECT_ID="your-gcp-project-id" # Replace with your actual GCP Project ID for Vertex AI mode
+VERTEX_AI_LOCATION="us-central1" # Or your desired Vertex AI region
+LLM_MODEL_NAME="gemini-1.5-flash" # The Gemini model to use
 ```
 **Important:** The `service-account-file.json` should be placed directly in the `backend/` directory. This file contains sensitive credentials and must be secured.
 
@@ -114,7 +116,7 @@ The FinOps Intelligence Dashboard backend is built on a microservice-oriented ap
 *   **FastAPI Backend:** Handles API requests, orchestrates data flow, performs business logic (cost aggregation, AI integration), and interacts with the database and external services.
 *   **PostgreSQL Database:** Stores processed FinOps data (aggregated costs) and AI-generated insights, providing a reliable and scalable data store.
 *   **Google Cloud BigQuery:** Serves as the primary source for raw cloud billing data. The backend authenticates and queries this dataset to extract relevant information.
-*   **Large Language Model (LLM):** An external service (e.g., OpenAI, Vertex AI) integrated to provide advanced AI capabilities like spend summarization, anomaly detection, and cost optimization recommendations.
+*   **Large Language Model (LLM):** Google Generative AI (Gemini Model) integrated via API Key for AI-driven insights.
 
 ```
 +----------------+        +-------------------+        +---------------------+
@@ -133,7 +135,7 @@ The FinOps Intelligence Dashboard backend is built on a microservice-oriented ap
                                     V
                           +---------------------+
                           | LLM Service         |
-                          | (OpenAI/Vertex AI)  |
+                          | (Google Generative AI)|
                           +---------------------+
 ```
 
@@ -163,23 +165,22 @@ The application integrates with Large Language Models (LLMs) to enhance FinOps i
 *   **Anomaly Detection:** LLMs can analyze cost patterns and flag unusual spikes or drops in spending, providing explanations for potential anomalies.
 *   **Cost Optimization Recommendations:** Based on current spend and best practices, LLMs can suggest actionable recommendations to optimize cloud costs (e.g., identifying underutilized resources, recommending instance type changes).
 
-The specific LLM provider (e.g., OpenAI, Google Cloud Vertex AI, Anthropic) will be configured via environment variables and accessed through a dedicated service layer, allowing for flexible switching between providers.
+The specific LLM provider (Google Generative AI / Gemini Model) is configured via environment variables and accessed through a dedicated service layer.
 
 ## Engineering Roadmap
 
 ### Phase 1: Core Functionality (Current Implementation)
 *   FastAPI backend with basic API endpoints.
 *   PostgreSQL database for aggregated data and LLM insights.
-*   BigQuery integration for raw billing data ingestion.
-*   Basic multi-dimensional cost aggregation.
-*   Placeholder for LLM integration.
+*   BigQuery integration for raw billing data ingestion, with dynamic table exploration and robust query handling.
+*   Google Generative AI (Gemini) LLM integration for insights.
 *   Dockerization for local development.
 
 ### Phase 2: Enhanced Data Processing & Insights
 *   **Advanced BigQuery Querying:** Optimize BigQuery queries for performance and cost. Implement incremental data loading.
 *   **Real-time Data Processing:** Explore streaming solutions (e.g., Apache Kafka, Google Cloud Pub/Sub) for near real-time ingestion and aggregation of billing data.
 *   **Sophisticated Aggregation:** Implement more complex aggregation rules and custom dimensions.
-*   **Advanced LLM Integration:** Integrate with a specific LLM provider (e.g., Vertex AI) and fine-tune models for better FinOps-specific insights.
+*   **Advanced LLM Integration:** Fine-tune Gemini models for better FinOps-specific insights.
 *   **Cost Forecasting:** Implement ML models for predicting future cloud spend.
 
 ### Phase 3: Scalability, Observability & Security
