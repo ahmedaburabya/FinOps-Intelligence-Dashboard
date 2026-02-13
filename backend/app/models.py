@@ -21,7 +21,7 @@ class AggregatedCostData(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     service = Column(String, index=True, nullable=False, comment="Google Cloud service, e.g., 'Compute Engine'")
-    project = Column(String, index=True, nullable=False, comment="Google Cloud project ID")
+    project = Column(String, index=True, nullable=True, comment="Google Cloud project ID")
     sku = Column(String, index=True, nullable=False, comment="Stock Keeping Unit, representing a specific usage metric")
     time_period = Column(DateTime, index=True, nullable=False, comment="Timestamp for the aggregated period (e.g., daily, monthly)")
     cost = Column(Float, nullable=False, comment="Aggregated cost for the given dimensions")

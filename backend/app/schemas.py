@@ -17,7 +17,7 @@ class AggregatedCostDataBase(BaseModel):
     Defines the common fields for creating or updating cost data.
     """
     service: str
-    project: str
+    project: Optional[str] # Made optional to handle cases where project.id might be NULL
     sku: str
     time_period: datetime
     cost: float

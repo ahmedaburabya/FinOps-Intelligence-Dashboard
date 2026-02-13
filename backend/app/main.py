@@ -9,9 +9,13 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import logging
 from sqlalchemy.orm import Session # Import Session
+from sqlalchemy import text # Import text for raw SQL
 
 # Import database initialization and session dependency
 from app.database import init_db, get_db
+
+# Import BigQuery service
+from app.services.bigquery import BigQueryService, bigquery_service
 
 # Import API routers
 from app.api.v1.endpoints import finops
@@ -46,6 +50,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # These services will be initialized and made available through FastAPI's
     # dependency injection system or global singleton patterns as needed.
     # Placeholder for future service initialization.
+    try:
+        BigQueryService()  # Initialize the BigQueryService singleton
+        logger.info("BigQuery service initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize BigQuery service: {e}")
+        # Depending on the severity, you might want to re-raise or handle gracefully
+
     logger.info("Startup complete. Application ready to serve requests.")
     yield # Application will run until this point
     
@@ -87,7 +98,7 @@ async def health_check(db_session: Session = Depends(get_db)):
     """
     try:
         # Attempt a simple database query to check connectivity
-        db_session.execute("SELECT 1")
+        db_session.execute(text("SELECT 1"))
         return {"status": "ok", "database_connection": "successful"}
     except Exception as e:
         logger.error(f"Health check failed: Database connection error: {e}")

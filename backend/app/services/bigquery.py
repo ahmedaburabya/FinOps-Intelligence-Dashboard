@@ -178,7 +178,8 @@ class BigQueryService:
         logger.info(f"Using {date_filter_column} for date filtering in BigQuery query.")
 
         # Build the WHERE clause dynamically
-        where_clauses = ["cost_type = 'USAGE'"] # Always filter by cost_type
+        # where_clauses = ["cost_type = 'USAGE'"] # Always filter by cost_type - REMOVED FOR DEBUGGING
+        where_clauses = []
 
         if start_date:
             where_clauses.append(f"{date_filter_column} >= '{start_date.strftime('%Y-%m-%d')}'")
@@ -220,6 +221,7 @@ class BigQueryService:
             time_period, project, service, sku
         """
         
+        logger.debug(f"BigQuery aggregation query:\n{query}") # Log the generated query
         logger.info(f"Executing BigQuery billing aggregation query for {start_date} to {end_date} from table {bigquery_billing_table_full_id}")
         results = self.execute_query(query)
         
@@ -238,7 +240,7 @@ class BigQueryService:
                 ))
             except Exception as e:
                 logger.error(f"Error transforming BigQuery row to schema: {row} - {e}")
-                continue
+                raise # Raise the exception to make transformation errors explicit
                 
         return aggregated_data
 
