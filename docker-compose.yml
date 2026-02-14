@@ -56,22 +56,22 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # --- React Frontend Service ---
-  # frontend:
-  #   build:
-  #     context: ./frontend # Build from the frontend directory
-  #     dockerfile: Dockerfile
-  #     args:
-  #       # Pass VITE_API_BASE_URL to the Dockerfile's build stage.
-  #       # This allows the Nginx config to be dynamic if needed,
-  #       # but primarily, it's for the React app's build process.
-  #       VITE_API_BASE_URL: /api/v1 # Nginx will proxy this path to the backend service
-  #   container_name: finops_frontend
-  #   ports:
-  #     - "5173:80" # Map host port 5173 to container port 80 (Nginx default)
-  #   depends_on:
-  #     - backend # Ensure backend is up before frontend tries to connect
-  #   networks:
-  #     - finops-network
+  frontend:
+    build:
+      context: ./frontend # Build from the frontend directory
+      dockerfile: Dockerfile
+      args:
+        # Pass VITE_API_BASE_URL to the Dockerfile's build stage.
+        # This allows the Nginx config to be dynamic if needed,
+        # but primarily, it's for the React app's build process.
+        VITE_API_BASE_URL: /api/v1 # Nginx will proxy this path to the backend service
+    container_name: finops_frontend
+    ports:
+      - "5173:80" # Map host port 5173 to container port 80 (Nginx default)
+    depends_on:
+      - backend # Ensure backend is up before frontend tries to connect
+    networks:
+      - finops-network
 
 # --- Docker Networks ---
 # Define a custom bridge network for services to communicate with each other.

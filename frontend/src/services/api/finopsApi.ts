@@ -8,7 +8,6 @@ import type {
   LLMInsightCreate,
 } from '~/types/finops';
 import type { BigQueryIngestResponse } from '~/types/bigquery';
-import type { PaginationParams } from '~/types/common';
 
 const FINOPS_BASE_PATH = '/finops'; // From backend main.py: prefix="/api/v1/finops"
 
