@@ -5,6 +5,7 @@ event handlers for application startup and shutdown.
 """
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware # Import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import logging
@@ -74,6 +75,23 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
     lifespan=lifespan # Assign the lifespan context manager
+)
+
+# --- CORS Middleware ---
+# Configure CORS to allow requests from the frontend development server.
+# In a production environment, you should restrict allow_origins to your frontend's domain.
+origins = [
+    "http://localhost",
+    "http://localhost:5173",  # Frontend development server
+    # Add other origins for production, staging, etc.
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- Include API Routers ---

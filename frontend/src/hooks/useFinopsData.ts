@@ -65,7 +65,7 @@ export const useAggregatedCostData = (params?: {
 
   useEffect(() => {
     fetchCostData();
-  }, [fetchCostData]);
+  }, []);
 
   return { costData, loading, error, refetchCostData: fetchCostData };
 };

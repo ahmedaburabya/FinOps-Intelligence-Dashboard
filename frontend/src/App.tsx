@@ -10,7 +10,6 @@ import DashboardPage from './pages/DashboardPage';
 import BigQueryExplorerPage from './pages/BigQueryExplorerPage';
 import NotFoundPage from './pages/NotFoundPage';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 
 function App() {
   return (
@@ -18,9 +17,6 @@ function App() {
       <CssBaseline /> {/* Resets CSS to a consistent baseline */}
       <Router>
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          <Typography variant="h3" align="center" sx={{ p: 2 }}>
-            ABURABYA
-          </Typography>
           <Header />
           <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
             <Routes>
