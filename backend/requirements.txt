@@ -1,0 +1,23 @@
+# Core FastAPI and ASGI server
+fastapi
+uvicorn
+
+# Database (PostgreSQL)
+sqlalchemy
+psycopg2-binary
+
+# Google Cloud BigQuery integration
+google-cloud-bigquery
+
+# Data validation and settings management
+pydantic
+python-dotenv
+
+# Database migrations
+alembic
+
+# LLM Integration (placeholder for now, specific library depends on LLM chosen)
+# For example, if using OpenAI:
+# openai
+# LLM Integration (Google Generative AI)
+google-generativeai
