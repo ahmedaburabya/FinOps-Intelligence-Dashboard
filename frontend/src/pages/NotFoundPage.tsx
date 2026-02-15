@@ -26,7 +26,13 @@ const NotFoundPage: React.FC = () => {
         <Typography variant="body1" color="text.secondary" paragraph>
           The page you're looking for doesn't exist or an unexpected error occurred.
         </Typography>
-        <Button variant="contained" color="primary" component={Link} to="/" sx={{ mt: 3 }}>
+        <Button
+          variant="contained"
+          color="primary"
+          component={Link}
+          to="/"
+          sx={{ mt: 3 }}
+        >
           Go to Dashboard
         </Button>
       </Box>

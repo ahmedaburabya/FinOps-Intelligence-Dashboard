@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { finopsApi } from '../services';
 import type { AggregatedCostData, FinopsOverview } from '../types/finops';
 import type { ApiError } from '../types/common';
-import { AxiosError } from 'axios';
 
 // Custom hook for fetching FinOps Overview data
 export const useFinopsOverview = (project?: string) => {
@@ -17,11 +16,10 @@ export const useFinopsOverview = (project?: string) => {
     try {
       const data = await finopsApi.getFinopsOverview(project);
       setOverview(data);
-    } catch (err: unknown) {
-      const axiosError = err as AxiosError<{ detail?: string }>;
+    } catch (err: any) {
       setError({
-        detail: axiosError.response?.data?.detail || 'Failed to fetch FinOps overview.',
-        status_code: axiosError.response?.status,
+        detail: err.response?.data?.detail || 'Failed to fetch FinOps overview.',
+        status_code: err.response?.status,
       });
     } finally {
       setLoading(false);
@@ -55,11 +53,10 @@ export const useAggregatedCostData = (params?: {
     try {
       const data = await finopsApi.getAggregatedCostDataList(params);
       setCostData(data);
-    } catch (err: unknown) {
-      const axiosError = err as AxiosError<{ detail?: string }>;
+    } catch (err: any) {
       setError({
-        detail: axiosError.response?.data?.detail || 'Failed to fetch aggregated cost data.',
-        status_code: axiosError.response?.status,
+        detail: err.response?.data?.detail || 'Failed to fetch aggregated cost data.',
+        status_code: err.response?.status,
       });
     } finally {
       setLoading(false);
@@ -68,7 +65,7 @@ export const useAggregatedCostData = (params?: {
 
   useEffect(() => {
     fetchCostData();
-  }, [fetchCostData, params?.skip, params?.limit]); // Added fetchCostData to dependencies
+  }, [params?.skip, params?.limit]);
 
   return { costData, loading, error, refetchCostData: fetchCostData };
 };

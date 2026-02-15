@@ -24,9 +24,8 @@ import { finopsApi } from '~/services';
 import { useFinopsOverview, useAggregatedCostData } from '~/hooks/useFinopsData';
 import LoadingSpinner from '~/components/common/LoadingSpinner';
 import SnackbarAlert from '~/components/common/SnackbarAlert';
-import { AxiosError } from 'axios';
-// @ts-expect-error // Adding this here as it seems to be the only way to bypass TS6196 with verbatimModuleSyntax
-import type { LLMInsight } from '~/types/finops'; // Using import type
+// @ts-ignore // Adding this here as it seems to be the only way to bypass TS6196 with verbatimModuleSyntax
+import type { AggregatedCostData, FinopsOverview, LLMInsight } from '~/types/finops'; // Using import type
 
 const DashboardPage: React.FC = () => {
   const [projectFilter, setProjectFilter] = useState<string>('');
@@ -36,7 +35,7 @@ const DashboardPage: React.FC = () => {
   const [endDateFilter, setEndDateFilter] = useState<string>('');
 
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 10; // Fixed value, if this needs to be dynamic, a state variable is required.
+  const [itemsPerPage, _setItemsPerPage] = useState<number>(10); // Renamed to silence unused error
   const [totalItems, setTotalItems] = useState<number>(0); // This would ideally come from the backend
 
   const {
@@ -66,9 +65,7 @@ const DashboardPage: React.FC = () => {
   const [llmInsight, setLlmInsight] = useState<LLMInsight | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<
-    'success' | 'error' | 'info' | 'warning'
-  >('success');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
 
   const handleApplyFilters = () => {
     setCurrentPage(1); // Reset to first page on new filter
@@ -76,8 +73,7 @@ const DashboardPage: React.FC = () => {
     refetchOverview();
   };
 
-  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-    // Prefixed with _
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => { // Prefixed with _
     setCurrentPage(value);
     // refetchCostData is already dependent on currentPage, so it will re-fetch
   };
@@ -96,15 +92,10 @@ const DashboardPage: React.FC = () => {
       setSnackbarMessage('AI spend summary generated successfully!');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Failed to generate LLM summary:', err);
-      const axiosError = err as AxiosError<{ detail?: string }>;
-      setLlmSummaryError(
-        axiosError.response?.data?.detail || 'Failed to generate AI spend summary.',
-      );
-      setSnackbarMessage(
-        axiosError.response?.data?.detail || 'Failed to generate AI spend summary.',
-      );
+      setLlmSummaryError(err.response?.data?.detail || 'Failed to generate AI spend summary.');
+      setSnackbarMessage(err.response?.data?.detail || 'Failed to generate AI spend summary.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
@@ -112,8 +103,7 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleSnackbarClose = (_event?: React.SyntheticEvent | Event, reason?: string) => {
-    // Prefixed with _
+  const handleSnackbarClose = (_event?: React.SyntheticEvent | Event, reason?: string) => { // Prefixed with _
     if (reason === 'clickaway') {
       return;
     }
@@ -123,15 +113,16 @@ const DashboardPage: React.FC = () => {
   // Mock totalItems for pagination since backend doesn't provide it yet
   useEffect(() => {
     if (costData && !costDataLoading) {
-      // This is a crude way to estimate total pages if no total count is provided by API
-      // In a real app, API would return total_count
-      if (costData.length < itemsPerPage && currentPage === 1) {
-        setTotalItems(costData.length);
-      } else if (costData.length === itemsPerPage) {
-        setTotalItems(currentPage * itemsPerPage + 1); // Assume more if full page
-      }
+        // This is a crude way to estimate total pages if no total count is provided by API
+        // In a real app, API would return total_count
+        if (costData.length < itemsPerPage && currentPage === 1) {
+            setTotalItems(costData.length);
+        } else if (costData.length === itemsPerPage) {
+            setTotalItems(currentPage * itemsPerPage + 1); // Assume more if full page
+        }
     }
   }, [costData, costDataLoading, itemsPerPage, currentPage]);
+
 
   if (overviewLoading && costDataLoading) {
     return <LoadingSpinner message="Loading FinOps Dashboard..." />;
@@ -153,23 +144,12 @@ const DashboardPage: React.FC = () => {
       {(overviewError || costDataError || llmSummaryError) && (
         <SnackbarAlert
           open={true} // Always open if there's an error
-          message={
-            overviewError?.detail ||
-            costDataError?.detail ||
-            llmSummaryError ||
-            'An unknown error occurred.'
-          }
+          message={overviewError?.detail || costDataError?.detail || llmSummaryError || 'An unknown error occurred.'}
           severity="error"
           onClose={() => {
-            if (overviewError) {
-              refetchOverview();
-            }
-            if (costDataError) {
-              refetchCostData();
-            }
-            if (llmSummaryError) {
-              setLlmSummaryError(null);
-            }
+              overviewError ? refetchOverview() : null;
+              costDataError ? refetchCostData() : null;
+              llmSummaryError ? setLlmSummaryError(null) : null;
           }}
           autoHideDuration={undefined} // Changed from null to undefined
         />
@@ -191,9 +171,7 @@ const DashboardPage: React.FC = () => {
                     Month-to-Date Spend
                   </Typography>
                   <Typography variant="h5">
-                    {overview?.mtd_spend !== undefined
-                      ? `$${overview.mtd_spend.toFixed(2)}`
-                      : 'N/A'}
+                    {overview?.mtd_spend !== undefined ? `$${overview.mtd_spend.toFixed(2)}` : 'N/A'}
                   </Typography>
                 </CardContent>
               </Card>
@@ -205,9 +183,7 @@ const DashboardPage: React.FC = () => {
                     Estimated Monthly Burn Rate
                   </Typography>
                   <Typography variant="h5">
-                    {overview?.burn_rate_estimated_monthly !== undefined
-                      ? `$${overview.burn_rate_estimated_monthly.toFixed(2)}`
-                      : 'N/A'}
+                    {overview?.burn_rate_estimated_monthly !== undefined ? `$${overview.burn_rate_estimated_monthly.toFixed(2)}` : 'N/A'}
                   </Typography>
                 </CardContent>
               </Card>
@@ -313,9 +289,7 @@ const DashboardPage: React.FC = () => {
                         <TableCell>{row.project || 'N/A'}</TableCell>
                         <TableCell>{row.sku}</TableCell>
                         <TableCell align="right">{row.cost.toFixed(2)}</TableCell>
-                        <TableCell align="right">
-                          {row.usage_amount?.toFixed(2) || 'N/A'} {row.usage_unit || ''}
-                        </TableCell>
+                        <TableCell align="right">{row.usage_amount?.toFixed(2) || 'N/A'} {row.usage_unit || ''}</TableCell>
                         <TableCell>{new Date(row.time_period).toLocaleDateString()}</TableCell>
                       </TableRow>
                     ))
