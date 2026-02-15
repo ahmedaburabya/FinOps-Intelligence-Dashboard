@@ -14,12 +14,17 @@ const FINOPS_BASE_PATH = '/finops'; // From backend main.py: prefix="/api/v1/fin
 export const finopsApi = {
   // Aggregated Cost Data Endpoints
   createAggregatedCostData: async (data: AggregatedCostDataCreate): Promise<AggregatedCostData> => {
-    const response = await axiosInstance.post<AggregatedCostData>(`${FINOPS_BASE_PATH}/aggregated-cost`, data);
+    const response = await axiosInstance.post<AggregatedCostData>(
+      `${FINOPS_BASE_PATH}/aggregated-cost`,
+      data,
+    );
     return response.data;
   },
 
   getAggregatedCostDataById: async (costDataId: number): Promise<AggregatedCostData> => {
-    const response = await axiosInstance.get<AggregatedCostData>(`${FINOPS_BASE_PATH}/aggregated-cost/${costDataId}`);
+    const response = await axiosInstance.get<AggregatedCostData>(
+      `${FINOPS_BASE_PATH}/aggregated-cost/${costDataId}`,
+    );
     return response.data;
   },
 
@@ -30,15 +35,20 @@ export const finopsApi = {
     project?: string;
     sku?: string;
     start_date?: string; // datetime-local format 'YYYY-MM-DDTHH:mm:ss' or 'YYYY-MM-DD'
-    end_date?: string;   // datetime-local format 'YYYY-MM-DDTHH:mm:ss' or 'YYYY-MM-DD'
+    end_date?: string; // datetime-local format 'YYYY-MM-DDTHH:mm:ss' or 'YYYY-MM-DD'
   }): Promise<AggregatedCostData[]> => {
-    const response = await axiosInstance.get<AggregatedCostData[]>(`${FINOPS_BASE_PATH}/aggregated-cost`, { params });
+    const response = await axiosInstance.get<AggregatedCostData[]>(
+      `${FINOPS_BASE_PATH}/aggregated-cost`,
+      { params },
+    );
     return response.data;
   },
 
   // FinOps Overview Endpoints
   getFinopsOverview: async (project?: string): Promise<FinopsOverview> => {
-    const response = await axiosInstance.get<FinopsOverview>(`${FINOPS_BASE_PATH}/overview`, { params: { project } });
+    const response = await axiosInstance.get<FinopsOverview>(`${FINOPS_BASE_PATH}/overview`, {
+      params: { project },
+    });
     return response.data;
   },
 
@@ -46,9 +56,13 @@ export const finopsApi = {
   generateSpendSummary: async (params?: {
     project?: string;
     start_date?: string; // datetime-local format
-    end_date?: string;   // datetime-local format
+    end_date?: string; // datetime-local format
   }): Promise<LLMInsight> => {
-    const response = await axiosInstance.post<LLMInsight>(`${FINOPS_BASE_PATH}/generate-spend-summary`, null, { params });
+    const response = await axiosInstance.post<LLMInsight>(
+      `${FINOPS_BASE_PATH}/generate-spend-summary`,
+      null,
+      { params },
+    );
     return response.data;
   },
 
@@ -64,14 +78,20 @@ export const finopsApi = {
   },
 
   listBigQueryTables: async (datasetId: string): Promise<string[]> => {
-    const response = await axiosInstance.get<string[]>(`${FINOPS_BASE_PATH}/bigquery/datasets/${datasetId}/tables`);
+    const response = await axiosInstance.get<string[]>(
+      `${FINOPS_BASE_PATH}/bigquery/datasets/${datasetId}/tables`,
+    );
     return response.data;
   },
 
-  readBigQueryTableData: async (datasetId: string, tableId: string, limit?: number): Promise<any[]> => {
-    const response = await axiosInstance.get<any[]>(
+  readBigQueryTableData: async (
+    datasetId: string,
+    tableId: string,
+    limit?: number,
+  ): Promise<BigQueryTableDataRow[]> => {
+    const response = await axiosInstance.get<BigQueryTableDataRow[]>(
       `${FINOPS_BASE_PATH}/bigquery/datasets/${datasetId}/tables/${tableId}/data`,
-      { params: { limit } }
+      { params: { limit } },
     );
     return response.data;
   },
@@ -80,9 +100,13 @@ export const finopsApi = {
     dataset_id: string;
     table_id: string;
     start_date?: string; // Date format 'YYYY-MM-DD'
-    end_date?: string;   // Date format 'YYYY-MM-DD'
+    end_date?: string; // Date format 'YYYY-MM-DD'
   }): Promise<BigQueryIngestResponse> => {
-    const response = await axiosInstance.post<BigQueryIngestResponse>(`${FINOPS_BASE_PATH}/bigquery/ingest-billing-data`, null, { params });
+    const response = await axiosInstance.post<BigQueryIngestResponse>(
+      `${FINOPS_BASE_PATH}/bigquery/ingest-billing-data`,
+      null,
+      { params },
+    );
     return response.data;
   },
 };

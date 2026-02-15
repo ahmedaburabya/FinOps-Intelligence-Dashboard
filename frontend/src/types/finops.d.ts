@@ -1,7 +1,5 @@
 // frontend/src/types/finops.d.ts
 
-import { datetime } from "@angular/flex-layout";
-
 export interface AggregatedCostDataBase {
   service: string;
   project?: string | null;
@@ -13,7 +11,7 @@ export interface AggregatedCostDataBase {
   usage_unit?: string | null;
 }
 
-export interface AggregatedCostDataCreate extends AggregatedCostDataBase {}
+export type AggregatedCostDataCreate = AggregatedCostDataBase;
 
 export interface AggregatedCostData extends AggregatedCostDataBase {
   id: number;
@@ -28,7 +26,7 @@ export interface LLMInsightBase {
   sentiment?: string | null;
 }
 
-export interface LLMInsightCreate extends LLMInsightBase {}
+export type LLMInsightCreate = LLMInsightBase;
 
 export interface LLMInsight extends LLMInsightBase {
   id: number;

@@ -24,6 +24,7 @@ import { finopsApi } from '../services';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import SnackbarAlert from '../components/common/SnackbarAlert';
 import type { BigQueryTableDataRow } from '../types/bigquery';
+import { AxiosError } from 'axios';
 
 const BigQueryExplorerPage: React.FC = () => {
   const [datasets, setDatasets] = useState<string[]>([]);
@@ -41,14 +42,15 @@ const BigQueryExplorerPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<
+    'success' | 'error' | 'info' | 'warning'
+  >('success');
 
   // Ingestion state
   const [ingestDatasetId, setIngestDatasetId] = useState<string>('');
   const [ingestTableId, setIngestTableId] = useState<string>('');
   const [ingestStartDate, setIngestStartDate] = useState<string>('');
   const [ingestEndDate, setIngestEndDate] = useState<string>('');
-
 
   // Fetch Datasets
   useEffect(() => {
@@ -58,8 +60,9 @@ const BigQueryExplorerPage: React.FC = () => {
       try {
         const response = await finopsApi.listBigQueryDatasets();
         setDatasets(response);
-      } catch (err: any) {
-        setError(err.response?.data?.detail || 'Failed to fetch BigQuery datasets.');
+      } catch (err: unknown) {
+        const axiosError = err as AxiosError<{ detail?: string }>;
+        setError(axiosError.response?.data?.detail || 'Failed to fetch BigQuery datasets.');
       } finally {
         setLoadingDatasets(false);
       }
@@ -78,8 +81,12 @@ const BigQueryExplorerPage: React.FC = () => {
         try {
           const response = await finopsApi.listBigQueryTables(selectedDataset);
           setTables(response);
-        } catch (err: any) {
-          setError(err.response?.data?.detail || `Failed to fetch tables for dataset ${selectedDataset}.`);
+        } catch (err: unknown) {
+          const axiosError = err as AxiosError<{ detail?: string }>;
+          setError(
+            axiosError.response?.data?.detail ||
+              `Failed to fetch tables for dataset ${selectedDataset}.`,
+          );
         } finally {
           setLoadingTables(false);
         }
@@ -95,10 +102,17 @@ const BigQueryExplorerPage: React.FC = () => {
         setLoadingTableData(true);
         setError(null);
         try {
-          const response = await finopsApi.readBigQueryTableData(selectedDataset, selectedTable, tableDataLimit);
+          const response = await finopsApi.readBigQueryTableData(
+            selectedDataset,
+            selectedTable,
+            tableDataLimit,
+          );
           setTableData(response);
-        } catch (err: any) {
-          setError(err.response?.data?.detail || `Failed to fetch data for table ${selectedTable}.`);
+        } catch (err: unknown) {
+          const axiosError = err as AxiosError<{ detail?: string }>;
+          setError(
+            axiosError.response?.data?.detail || `Failed to fetch data for table ${selectedTable}.`,
+          );
         } finally {
           setLoadingTableData(false);
         }
@@ -107,12 +121,12 @@ const BigQueryExplorerPage: React.FC = () => {
     fetchTableData();
   }, [selectedDataset, selectedTable, tableDataLimit]);
 
-  const handleDatasetChange = (event: any) => {
+  const handleDatasetChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedDataset(event.target.value);
     setIngestDatasetId(event.target.value); // Sync for ingestion form
   };
 
-  const handleTableChange = (event: any) => {
+  const handleTableChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedTable(event.target.value);
     setIngestTableId(event.target.value); // Sync for ingestion form
   };
@@ -136,10 +150,11 @@ const BigQueryExplorerPage: React.FC = () => {
       setSnackbarMessage(response.message);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Ingestion error:', err);
-      setError(err.response?.data?.detail || 'Failed to ingest BigQuery data.');
-      setSnackbarMessage(err.response?.data?.detail || 'Failed to ingest BigQuery data.');
+      const axiosError = err as AxiosError<{ detail?: string }>;
+      setError(axiosError.response?.data?.detail || 'Failed to ingest BigQuery data.');
+      setSnackbarMessage(axiosError.response?.data?.detail || 'Failed to ingest BigQuery data.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
