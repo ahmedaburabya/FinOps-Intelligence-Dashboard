@@ -1,11 +1,12 @@
 // frontend/src/services/api/axiosInstance.ts
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// Check for runtime config (window._env_) first, then build-time (import.meta.env)
+let API_BASE_URL = (window as any)._env_?.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
 
 if (!API_BASE_URL) {
-  console.error("VITE_API_BASE_URL is not defined. Please check your .env file.");
-  throw new Error("VITE_API_BASE_URL is not defined. Cannot proceed with API calls.");
+  console.error("VITE_API_BASE_URL is not defined. Requests will use relative paths.");
+  API_BASE_URL="https://fastapi-backend-229203399238.europe-west1.run.app/api/v1"
 }
 
 const axiosInstance = axios.create({

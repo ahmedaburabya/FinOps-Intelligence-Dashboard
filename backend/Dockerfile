@@ -28,7 +28,7 @@ COPY . .
 # Expose the port on which the FastAPI application will run
 # This informs Docker that the container listens on the specified network ports
 # at runtime.
-EXPOSE 8000
+EXPOSE 8080
 
 # Set environment variables for non-root user and production settings
 # These are best practices for security and performance in Docker containers.
@@ -45,4 +45,4 @@ ENV PYTHONUNBUFFERED=1
 # `--workers 4` (or number of CPU cores) is good for production to handle multiple requests.
 # `--log-level info` sets the logging level.
 # In a production environment, `--reload` should NOT be used.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4", "--log-level", "info"]

@@ -81,6 +81,7 @@ app = FastAPI(
 # Configure CORS to allow requests from the frontend development server.
 # In a production environment, you should restrict allow_origins to your frontend's domain.
 origins = [
+    "https://finops-dashboard-229203399238.europe-west1.run.app",  # Frontend production server
     "http://localhost",
     "http://localhost:5173",  # Frontend development server
     # Add other origins for production, staging, etc.
