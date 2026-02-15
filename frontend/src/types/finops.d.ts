@@ -1,6 +1,6 @@
 // frontend/src/types/finops.d.ts
 
-import { datetime } from "@angular/flex-layout";
+import { datetime } from '@angular/flex-layout';
 
 export interface AggregatedCostDataBase {
   service: string;

@@ -41,14 +41,15 @@ const BigQueryExplorerPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<
+    'success' | 'error' | 'info' | 'warning'
+  >('success');
 
   // Ingestion state
   const [ingestDatasetId, setIngestDatasetId] = useState<string>('');
   const [ingestTableId, setIngestTableId] = useState<string>('');
   const [ingestStartDate, setIngestStartDate] = useState<string>('');
   const [ingestEndDate, setIngestEndDate] = useState<string>('');
-
 
   // Fetch Datasets
   useEffect(() => {
@@ -79,7 +80,9 @@ const BigQueryExplorerPage: React.FC = () => {
           const response = await finopsApi.listBigQueryTables(selectedDataset);
           setTables(response);
         } catch (err: any) {
-          setError(err.response?.data?.detail || `Failed to fetch tables for dataset ${selectedDataset}.`);
+          setError(
+            err.response?.data?.detail || `Failed to fetch tables for dataset ${selectedDataset}.`,
+          );
         } finally {
           setLoadingTables(false);
         }
@@ -95,10 +98,16 @@ const BigQueryExplorerPage: React.FC = () => {
         setLoadingTableData(true);
         setError(null);
         try {
-          const response = await finopsApi.readBigQueryTableData(selectedDataset, selectedTable, tableDataLimit);
+          const response = await finopsApi.readBigQueryTableData(
+            selectedDataset,
+            selectedTable,
+            tableDataLimit,
+          );
           setTableData(response);
         } catch (err: any) {
-          setError(err.response?.data?.detail || `Failed to fetch data for table ${selectedTable}.`);
+          setError(
+            err.response?.data?.detail || `Failed to fetch data for table ${selectedTable}.`,
+          );
         } finally {
           setLoadingTableData(false);
         }

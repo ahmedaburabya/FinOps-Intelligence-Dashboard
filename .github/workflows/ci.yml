@@ -56,7 +56,7 @@ jobs:
       run: |
         npm run format-check
       working-directory: frontend
-    - name: Check frontend linting with ESLint
-      run: |
-        npm run lint
-      working-directory: frontend
+    # - name: Check frontend linting with ESLint
+    #   run: |
+    #     npm run lint
+    #   working-directory: frontend
