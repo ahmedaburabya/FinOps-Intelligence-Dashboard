@@ -5,8 +5,8 @@ import axios from 'axios';
 let API_BASE_URL = (window as any)._env_?.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
 
 if (!API_BASE_URL) {
-  console.error("VITE_API_BASE_URL is not defined. Requests will use relative paths.");
-  API_BASE_URL="https://fastapi-backend-229203399238.europe-west1.run.app/api/v1"
+  console.error('VITE_API_BASE_URL is not defined. Requests will use relative paths.');
+  API_BASE_URL = 'https://fastapi-backend-229203399238.europe-west1.run.app/api/v1';
 }
 
 const axiosInstance = axios.create({
@@ -28,7 +28,7 @@ axiosInstance.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 axiosInstance.interceptors.response.use(
@@ -38,11 +38,11 @@ axiosInstance.interceptors.response.use(
   (error) => {
     // Example: Handle global errors like 401 Unauthorized
     if (error.response && error.response.status === 401) {
-      console.error("Unauthorized access - redirecting to login or refreshing token.");
+      console.error('Unauthorized access - redirecting to login or refreshing token.');
       // You might trigger a global event here or redirect
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosInstance;

@@ -21,3 +21,7 @@ alembic
 # openai
 # LLM Integration (Google Generative AI)
 google-generativeai
+
+# Testing and Formatting
+pytest
+black

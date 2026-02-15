@@ -5,12 +5,12 @@ event handlers for application startup and shutdown.
 """
 
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware # Import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware  # Import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import logging
-from sqlalchemy.orm import Session # Import Session
-from sqlalchemy import text # Import text for raw SQL
+from sqlalchemy.orm import Session  # Import Session
+from sqlalchemy import text  # Import text for raw SQL
 
 # Import database initialization and session dependency
 from app.database import init_db, get_db
@@ -22,8 +22,11 @@ from app.services.bigquery import BigQueryService, bigquery_service
 from app.api.v1.endpoints import finops
 
 # Configure logging for the application
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -32,7 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     This function will be executed when the FastAPI application starts and stops.
     """
     logger.info("FastAPI application starting up...")
-    
+
     # --- Database Initialization ---
     # In a production environment, you would typically rely on Alembic migrations
     # to manage your database schema. However, for initial setup and development,
@@ -59,11 +62,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Depending on the severity, you might want to re-raise or handle gracefully
 
     logger.info("Startup complete. Application ready to serve requests.")
-    yield # Application will run until this point
-    
+    yield  # Application will run until this point
+
     logger.info("FastAPI application shutting down...")
     # --- Shutdown Tasks (e.g., close database connections, BigQuery clients) ---
     logger.info("Shutdown complete.")
+
 
 # Initialize the FastAPI application
 # The `lifespan` context manager handles startup and shutdown logic.
@@ -74,7 +78,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
-    lifespan=lifespan # Assign the lifespan context manager
+    lifespan=lifespan,  # Assign the lifespan context manager
 )
 
 # --- CORS Middleware ---
@@ -100,6 +104,7 @@ app.add_middleware(
 # All endpoints defined in `finops.py` will be prefixed with `/api/v1/finops`.
 app.include_router(finops.router, prefix="/api/v1/finops", tags=["FinOps"])
 
+
 # --- Root Endpoint (Optional) ---
 @app.get("/", summary="Root endpoint for API health check")
 async def read_root():
@@ -107,6 +112,7 @@ async def read_root():
     Returns a simple message to indicate the API is running.
     """
     return {"message": "FinOps Intelligence Dashboard API is running!"}
+
 
 # --- Health Check Endpoint (More comprehensive than root) ---
 @app.get("/health", summary="Detailed health check of the API and its dependencies")
@@ -122,5 +128,6 @@ async def health_check(db_session: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Health check failed: Database connection error: {e}")
         raise HTTPException(status_code=500, detail=f"Database connection error: {e}")
+
 
 # Note: BigQuery and LLM service health checks can be added here once those services are integrated.

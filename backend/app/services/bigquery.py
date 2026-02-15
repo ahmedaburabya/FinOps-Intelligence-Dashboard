@@ -22,10 +22,14 @@ logger = logging.getLogger(__name__)
 GOOGLE_APPLICATION_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 if not GOOGLE_APPLICATION_CREDENTIALS_PATH:
-    raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. "
-                     "Please provide the path to your service account key file.")
+    raise ValueError(
+        "GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. "
+        "Please provide the path to your service account key file."
+    )
 if not os.path.exists(GOOGLE_APPLICATION_CREDENTIALS_PATH):
-    raise FileNotFoundError(f"Service account key file not found at: {GOOGLE_APPLICATION_CREDENTIALS_PATH}")
+    raise FileNotFoundError(
+        f"Service account key file not found at: {GOOGLE_APPLICATION_CREDENTIALS_PATH}"
+    )
 
 
 class BigQueryService:
@@ -33,7 +37,8 @@ class BigQueryService:
     A service class to interact with Google Cloud BigQuery.
     Manages client initialization, query execution, and data transformation.
     """
-    _instance = None # Singleton instance
+
+    _instance = None  # Singleton instance
 
     def __new__(cls):
         """
@@ -52,11 +57,15 @@ class BigQueryService:
             # Load credentials from the service account key file
             credentials = service_account.Credentials.from_service_account_file(
                 GOOGLE_APPLICATION_CREDENTIALS_PATH,
-                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )
             # Initialize the BigQuery client
-            self.client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-            logger.info(f"BigQuery client initialized successfully for project: {credentials.project_id}")
+            self.client = bigquery.Client(
+                credentials=credentials, project=credentials.project_id
+            )
+            logger.info(
+                f"BigQuery client initialized successfully for project: {credentials.project_id}"
+            )
         except Exception as e:
             logger.error(f"Failed to initialize BigQuery client: {e}")
             raise
@@ -64,17 +73,17 @@ class BigQueryService:
     def execute_query(self, query_string: str) -> List[Dict[str, Any]]:
         """
         Executes a SQL query against BigQuery and returns the results as a list of dictionaries.
-        
+
         Args:
             query_string: The SQL query to execute.
-            
+
         Returns:
             A list of dictionaries, where each dictionary represents a row of the query result.
         """
         try:
             query_job = self.client.query(query_string)
-            results = query_job.result() # Waits for job to complete
-            
+            results = query_job.result()  # Waits for job to complete
+
             # Convert RowIterator to a list of dictionaries
             rows = []
             for row in results:
@@ -85,7 +94,9 @@ class BigQueryService:
             logger.error(f"Failed to execute BigQuery query: {e}")
             raise
 
-    def _table_has_column(self, project_id: str, dataset_id: str, table_id: str, column_name: str) -> bool:
+    def _table_has_column(
+        self, project_id: str, dataset_id: str, table_id: str, column_name: str
+    ) -> bool:
         """
         Checks if a BigQuery table has a specific column using INFORMATION_SCHEMA.
         """
@@ -99,9 +110,11 @@ class BigQueryService:
         try:
             results = self.execute_query(query)
             # The result is typically a list with one dictionary, with a boolean value
-            return results[0]['f0_'] if results else False
+            return results[0]["f0_"] if results else False
         except Exception as e:
-            logger.error(f"Error checking for column '{column_name}' in table '{table_id}': {e}")
+            logger.error(
+                f"Error checking for column '{column_name}' in table '{table_id}': {e}"
+            )
             return False
 
     def list_bigquery_datasets(self) -> List[str]:
@@ -126,10 +139,14 @@ class BigQueryService:
             logger.info(f"Found {len(tables)} tables in dataset '{dataset_id}'.")
             return [table.table_id for table in tables]
         except Exception as e:
-            logger.error(f"Error listing BigQuery tables in dataset '{dataset_id}': {e}")
+            logger.error(
+                f"Error listing BigQuery tables in dataset '{dataset_id}': {e}"
+            )
             raise
 
-    def read_bigquery_table_data(self, dataset_id: str, table_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def read_bigquery_table_data(
+        self, dataset_id: str, table_id: str, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """
         Reads data directly from a specified BigQuery table.
         """
@@ -137,44 +154,50 @@ class BigQueryService:
         query = f"SELECT * FROM `{bigquery_table_full_id}`"
         if limit is not None:
             query += f" LIMIT {limit}"
-        
-        logger.info(f"Executing BigQuery query to read data from table {bigquery_table_full_id}")
+
+        logger.info(
+            f"Executing BigQuery query to read data from table {bigquery_table_full_id}"
+        )
         return self.execute_query(query)
 
     def get_billing_data_for_aggregation(
-        self, 
+        self,
         dataset_id: str,
         table_id: str,
-        start_date: Optional[date] = None, 
-        end_date: Optional[date] = None
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
     ) -> List[schemas.AggregatedCostDataCreate]:
         """
         Fetches raw billing data from BigQuery and aggregates it for FinOps analysis.
-        
+
         This function performs multi-dimensional cost aggregation by `service`, `project`, `sku`,
         and `usage_start_time` (truncated to daily for `time_period`).
-        
+
         Args:
             dataset_id: The ID of the BigQuery dataset containing the billing data.
             table_id: The ID of the BigQuery table containing the billing data.
             start_date: Optional start date for filtering billing data.
             end_date: Optional end date for filtering billing data.
-            
+
         Returns:
             A list of Pydantic `AggregatedCostDataCreate` objects.
         """
         # Construct the full table ID dynamically
-        bigquery_billing_table_full_id = f"{self.client.project}.{dataset_id}.{table_id}"
-        
+        bigquery_billing_table_full_id = (
+            f"{self.client.project}.{dataset_id}.{table_id}"
+        )
+
         # Determine the date column for filtering based on table partitioning
         use_partition_date = self._table_has_column(
             project_id=self.client.project,
             dataset_id=dataset_id,
             table_id=table_id,
-            column_name="_PARTITIONDATE"
+            column_name="_PARTITIONDATE",
         )
-        
-        date_filter_column = "_PARTITIONDATE" if use_partition_date else "usage_start_time"
+
+        date_filter_column = (
+            "_PARTITIONDATE" if use_partition_date else "usage_start_time"
+        )
         logger.info(f"Using {date_filter_column} for date filtering in BigQuery query.")
 
         # Build the WHERE clause dynamically
@@ -182,7 +205,9 @@ class BigQueryService:
         where_clauses = []
 
         if start_date:
-            where_clauses.append(f"{date_filter_column} >= '{start_date.strftime('%Y-%m-%d')}'")
+            where_clauses.append(
+                f"{date_filter_column} >= '{start_date.strftime('%Y-%m-%d')}'"
+            )
         else:
             # If no start_date, default to a very old date for filtering partitioned tables,
             # or just don't add a start filter for usage_start_time
@@ -190,12 +215,16 @@ class BigQueryService:
                 where_clauses.append(f"{date_filter_column} >= '1970-01-01'")
 
         if end_date:
-            where_clauses.append(f"{date_filter_column} <= '{end_date.strftime('%Y-%m-%d')}'")
+            where_clauses.append(
+                f"{date_filter_column} <= '{end_date.strftime('%Y-%m-%d')}'"
+            )
         else:
             # If no end_date, default to today for filtering partitioned tables,
             # or just don't add an end filter for usage_start_time
             if use_partition_date:
-                where_clauses.append(f"{date_filter_column} <= '{datetime.now().strftime('%Y-%m-%d')}'")
+                where_clauses.append(
+                    f"{date_filter_column} <= '{datetime.now().strftime('%Y-%m-%d')}'"
+                )
 
         where_clause_str = " AND ".join(where_clauses)
         if where_clause_str:
@@ -220,29 +249,40 @@ class BigQueryService:
         ORDER BY
             time_period, project, service, sku
         """
-        
-        logger.debug(f"BigQuery aggregation query:\n{query}") # Log the generated query
-        logger.info(f"Executing BigQuery billing aggregation query for {start_date} to {end_date} from table {bigquery_billing_table_full_id}")
+
+        logger.debug(f"BigQuery aggregation query:\n{query}")  # Log the generated query
+        logger.info(
+            f"Executing BigQuery billing aggregation query for {start_date} to {end_date} from table {bigquery_billing_table_full_id}"
+        )
         results = self.execute_query(query)
-        
+
         aggregated_data = []
         for row in results:
             try:
-                aggregated_data.append(schemas.AggregatedCostDataCreate(
-                    service=row['service'],
-                    project=row['project'],
-                    sku=row['sku'],
-                    time_period=datetime.combine(row['time_period'], datetime.min.time()), # Convert date to datetime
-                    cost=float(row['cost']),
-                    currency=row['currency'],
-                    usage_amount=float(row['usage_amount']) if row['usage_amount'] is not None else None,
-                    usage_unit=row['usage_unit']
-                ))
+                aggregated_data.append(
+                    schemas.AggregatedCostDataCreate(
+                        service=row["service"],
+                        project=row["project"],
+                        sku=row["sku"],
+                        time_period=datetime.combine(
+                            row["time_period"], datetime.min.time()
+                        ),  # Convert date to datetime
+                        cost=float(row["cost"]),
+                        currency=row["currency"],
+                        usage_amount=(
+                            float(row["usage_amount"])
+                            if row["usage_amount"] is not None
+                            else None
+                        ),
+                        usage_unit=row["usage_unit"],
+                    )
+                )
             except Exception as e:
                 logger.error(f"Error transforming BigQuery row to schema: {row} - {e}")
-                raise # Raise the exception to make transformation errors explicit
-                
+                raise  # Raise the exception to make transformation errors explicit
+
         return aggregated_data
+
 
 # Instantiate the BigQueryService as a singleton
 bigquery_service = BigQueryService()
