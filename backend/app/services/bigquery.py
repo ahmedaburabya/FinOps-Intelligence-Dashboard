@@ -16,21 +16,6 @@ from app import schemas
 
 logger = logging.getLogger(__name__)
 
-# --- Configuration for BigQuery ---
-# The path to the Google Cloud service account key file, loaded from .env
-# This file is essential for authenticating with Google Cloud services like BigQuery.
-GOOGLE_APPLICATION_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-
-if not GOOGLE_APPLICATION_CREDENTIALS_PATH:
-    raise ValueError(
-        "GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. "
-        "Please provide the path to your service account key file."
-    )
-if not os.path.exists(GOOGLE_APPLICATION_CREDENTIALS_PATH):
-    raise FileNotFoundError(
-        f"Service account key file not found at: {GOOGLE_APPLICATION_CREDENTIALS_PATH}"
-    )
-
 
 class BigQueryService:
     """
@@ -54,9 +39,26 @@ class BigQueryService:
         Initializes the BigQuery client using service account credentials.
         """
         try:
-            # Load credentials from the service account key file
-            credentials = service_account.Credentials.from_service_account_file(
-                GOOGLE_APPLICATION_CREDENTIALS_PATH,
+            # Load credentials from environment variables
+            service_account_info = {
+                "type": os.getenv("GOOGLE_TYPE"),
+                "project_id": os.getenv("GOOGLE_PROJECT_ID"),
+                "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
+                "private_key": os.getenv("GOOGLE_PRIVATE_KEY"),
+                "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
+                "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+                "auth_uri": os.getenv("GOOGLE_AUTH_URI"),
+                "token_uri": os.getenv("GOOGLE_TOKEN_URI"),
+                "auth_provider_x509_cert_url": os.getenv("GOOGLE_AUTH_PROVIDER_X509_CERT_URL"),
+                "client_x509_cert_url": os.getenv("GOOGLE_CLIENT_X509_CERT_URL"),
+                "universe_domain": os.getenv("GOOGLE_UNIVERSE_DOMAIN"),
+            }
+
+            if service_account_info["private_key"]:
+                service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
+
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info,
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )
             # Initialize the BigQuery client
