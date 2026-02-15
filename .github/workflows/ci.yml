@@ -20,14 +20,16 @@ jobs:
       with:
         python-version: '3.13'
     - name: Install backend dependencies
-      env:
-        DATABASE_URL: postgresql://user:password@localhost:5432/testdb # Dummy URL for CI
       run: |
         python -m pip install --upgrade pip
         pip install -r backend/requirements.txt
     - name: Run backend tests
       env:
         DATABASE_URL: postgresql://user:password@localhost:5432/testdb # Dummy URL for CI
+        GOOGLE_APPLICATION_CREDENTIALS: testfile.json
+        VERTEX_AI_PROJECT: test-project
+        GOOGLE_API_KEY: asdf1234
+        GCP_PROJECT_ID: test-finops
       run: |
         pytest backend/app
     - name: Check backend code format with Black
