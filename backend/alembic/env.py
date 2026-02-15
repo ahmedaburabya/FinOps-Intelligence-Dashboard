@@ -20,10 +20,13 @@ fileConfig(config.config_file_name)
 # We need to import our Base from database.py and all models.py
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from app.database import Base
-from app import models # Import all models to ensure they are registered with Base.metadata
+from app import (
+    models,
+)  # Import all models to ensure they are registered with Base.metadata
 
 target_metadata = Base.metadata
 
@@ -67,7 +70,9 @@ def run_migrations_online():
     # retrieve DATABASE_URL from .env file
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        raise ValueError("DATABASE_URL environment variable is not set. Cannot run migrations online.")
+        raise ValueError(
+            "DATABASE_URL environment variable is not set. Cannot run migrations online."
+        )
 
     # Override the sqlalchemy.url from alembic.ini with the DATABASE_URL from .env
     # This ensures Alembic uses the correct database connection string.
@@ -81,12 +86,11 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()
