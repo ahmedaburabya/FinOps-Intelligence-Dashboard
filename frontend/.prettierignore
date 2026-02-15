@@ -1,0 +1,12 @@
+# Ignore artifacts:
+build
+dist
+node_modules
+.git
+.vite
+
+# Ignore all HTML files
+*.html
+
+# Ignore all CSS files
+*.css
