@@ -9,11 +9,16 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 import asyncio  # Import asyncio for running blocking calls in a thread pool
+from datetime import datetime, date # Added datetime import, also date for stricter type hinting
 
 # Google Generative AI imports
 import google.generativeai as genai
+# 
+# 
 
-from app import schemas
+
+from app import schemas, crud # Import crud to potentially use in tools
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +31,7 @@ LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemini-2.5-flash")  # The model to
 
 # Max character limit for LLM input to avoid exceeding context window.
 # This is a rough estimate and should be tuned based on the specific model's token limits.
-MAX_LLM_INPUT_CHARS = 8000
+MAX_LLM_INPUT_CHARS = 200000 # Adjusted to be more conservative for token limits
 
 
 class LLMService:
@@ -88,12 +93,13 @@ class LLMService:
             raise RuntimeError("Google Generative AI LLM model is not initialized.")
 
         try:
-            generation_config = genai.GenerationConfig(
+            generation_config = genai.GenerationConfig( # Use genai.GenerationConfig
                 temperature=0.2,  # Lower temperature for more focused output
                 top_p=0.8,
                 top_k=40,
-                max_output_tokens=1024,
+                max_output_tokens=8192, # Increased token limit for more detailed responses
             )
+            
             # LLM calls can be blocking, so run in a thread pool to avoid blocking the event loop
             loop = asyncio.get_running_loop()
             response = await loop.run_in_executor(
@@ -108,94 +114,200 @@ class LLMService:
                 raise ValueError(
                     "Google Generative AI returned no response candidates."
                 )
+            # Access text from the first candidate
             return response.text
         except Exception as e:
             logger.error(f"Error generating content with Google Generative AI: {e}")
             raise
 
     async def generate_spend_summary(
-        self, aggregated_data: List[schemas.AggregatedCostData]
+        self,
+        aggregated_data: List[schemas.AggregatedCostData],
+        project: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> str:
         """
         Generates a natural language summary of cloud spend based on aggregated data using Google Generative AI.
         """
-        prompt = self._format_data_for_llm(
-            aggregated_data, "summarize the cloud spend trends and key cost drivers"
+        # This method will now leverage the more generic get_ai_insight
+        return await self.get_ai_insight(
+            insight_type="summary",
+            query="Generate a detailed summary of cloud spend trends and key cost drivers.",
+            aggregated_data=aggregated_data,
+            project=project,
+            start_date=start_date,
+            end_date=end_date,
         )
-        return await self._generate_with_gemini(prompt)
 
     async def detect_anomalies(
-        self, aggregated_data: List[schemas.AggregatedCostData]
+        self,
+        aggregated_data: List[schemas.AggregatedCostData],
+        project: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> str:
         """
         Analyzes aggregated data for unusual spending patterns or anomalies using Google Generative AI.
         """
-        prompt = self._format_data_for_llm(
-            aggregated_data,
-            "identify any unusual spending patterns or anomalies and explain them",
+        return await self.get_ai_insight(
+            insight_type="anomaly",
+            query="Identify any unusual spending patterns or anomalies and explain them.",
+            aggregated_data=aggregated_data,
+            project=project,
+            start_date=start_date,
+            end_date=end_date,
         )
-        return await self._generate_with_gemini(prompt)
 
     async def generate_cost_optimization_recommendations(
-        self, aggregated_data: List[schemas.AggregatedCostData]
+        self,
+        aggregated_data: List[schemas.AggregatedCostData],
+        project: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> str:
         """
         Provides recommendations for optimizing cloud costs based on aggregated data using Google Generative AI.
         """
-        prompt = self._format_data_for_llm(
-            aggregated_data,
-            "provide specific and actionable cost optimization recommendations",
+        return await self.get_ai_insight(
+            insight_type="recommendation",
+            query="Provide specific and actionable cost optimization recommendations.",
+            aggregated_data=aggregated_data,
+            project=project,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+    async def get_ai_insight(
+        self,
+        insight_type: str,
+        query: str,
+        aggregated_data: List[schemas.AggregatedCostData],
+        project: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> str:
+        """
+        Generates an AI-driven insight based on the specified type and query.
+        This is the central method for interactive AI.
+        """
+        prompt = self._generate_insight_prompt(
+            insight_type=insight_type,
+            query=query,
+            aggregated_data=aggregated_data,
+            project=project,
+            start_date=start_date,
+            end_date=end_date,
         )
         return await self._generate_with_gemini(prompt)
 
-    def _format_data_for_llm(
-        self, aggregated_data: List[schemas.AggregatedCostData], context: str
+    def _generate_insight_prompt(
+        self,
+        insight_type: str,
+        query: str,
+        aggregated_data: List[schemas.AggregatedCostData],
+        project: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> str:
         """
-        Helper method to format aggregated data into a string suitable for LLM input.
+        Helper method to craft detailed prompts for the LLM based on insight type and data.
+        """
+        data_header_parts = ["The following aggregated cloud spend data is available:"]
+        if project:
+            data_header_parts.append(f"For Project ID: {project}")
+        if start_date and end_date:
+            data_header_parts.append(f"From {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        elif start_date:
+            data_header_parts.append(f"From {start_date.strftime('%Y-%m-%d')}")
+        elif end_date:
+            data_header_parts.append(f"Up to {end_date.strftime('%Y-%m-%d')}")
+        
+        data_header = "\n".join(data_header_parts) + "\n\n"
+
+        formatted_data_for_llm = self._format_data_for_llm_content(aggregated_data)
+
+        base_prompt = (
+            f"You are an expert FinOps analyst. Your task is to analyze cloud spend data "
+            f"and provide insights. Always respond in clear, concise, plain English."
+        )
+
+        if insight_type == "summary":
+            instruction = (
+                "Based on the provided data, generate a detailed summary of cloud spend trends and key cost drivers. "
+                "Include potential anomalies or areas for optimization. Structure your response with clear headings or bullet points for readability."
+            )
+        elif insight_type == "anomaly":
+            instruction = (
+                "Based on the provided data, identify any unusual spending patterns or anomalies. "
+                "Explain what makes them anomalous and suggest potential reasons or root causes. "
+                "Provide specific examples from the data if possible."
+            )
+        elif insight_type == "root_cause":
+            instruction = (
+                "Analyze the provided cloud spend data to determine the root cause for any significant changes or anomalies. "
+                "Focus on identifying specific services, projects, or SKUs that drove the change. "
+                "If the query provides a specific change to investigate, focus on that."
+            )
+        elif insight_type == "prediction":
+            instruction = (
+                "Analyze the historical trends in the provided cloud spend data. "
+                "Based on these trends, predict future costs for the next month or quarter. "
+                "Highlight key assumptions made and potential factors that could influence the prediction."
+                "Provide numerical estimates if possible."
+            )
+        elif insight_type == "recommendation":
+            instruction = (
+                "Based on the provided cloud spend data, generate specific and actionable cost optimization recommendations. "
+                "Categorize recommendations by service or area (e.g., 'Compute Optimization', 'Storage Optimization'). "
+                "Quantify potential savings where feasible."
+            )
+        elif insight_type == "natural_query":
+            instruction = f"Answer the following question based on the provided cloud spend data: '{query}'."
+            instruction += " If the data is insufficient to answer, state that."
+        else:
+            instruction = f"Process the following request using the cloud spend data: '{query}'."
+
+
+        full_prompt = (
+            f"{base_prompt}\n\n"
+            f"{data_header}"
+            f"```json\n{formatted_data_for_llm}\n```\n\n"
+            f"{instruction}"
+        )
+        return full_prompt
+
+    def _format_data_for_llm_content(
+        self,
+        aggregated_data: List[schemas.AggregatedCostData],
+    ) -> str:
+        """
+        Helper method to format aggregated data into a JSON string suitable for LLM input.
         If the data exceeds MAX_LLM_INPUT_CHARS, it will be truncated with a warning.
         """
         if not aggregated_data:
-            return f"No data available to {context}."
+            return "[]" # Return empty JSON array if no data
 
-        data_lines = []
-        for item in aggregated_data:
-            data_lines.append(
-                f"- Service: {item.service}, Project: {item.project}, SKU: {item.sku}, "
-                f"Time: {item.time_period.strftime('%Y-%m-%d')}, Cost: {item.cost:.2f} {item.currency}, "
-                f"Usage: {item.usage_amount if item.usage_amount is not None else 'N/A'} {item.usage_unit if item.usage_unit else ''}"
-            )
-
-        full_formatted_data = "\n".join(data_lines)
-
-        # Check for length and truncate if necessary
-        if len(full_formatted_data) > MAX_LLM_INPUT_CHARS:
-            truncated_formatted_data = full_formatted_data[:MAX_LLM_INPUT_CHARS]
-            # Try to truncate at a line break to avoid cutting off mid-data point
-            last_newline = truncated_formatted_data.rfind("\n")
-            if last_newline != -1:
-                truncated_formatted_data = (
-                    truncated_formatted_data[:last_newline] + "\n..."
-                )
+        # Convert aggregated_data SQLAlchemy model objects to Pydantic schema objects for JSON serialization
+        data_as_dicts = [schemas.AggregatedCostData.model_validate(item).model_dump_json(exclude_unset=True) for item in aggregated_data]
+        full_json_data = f"[{', '.join(data_as_dicts)}]"
+        
+        # Simple truncation if it's too long
+        if len(full_json_data) > MAX_LLM_INPUT_CHARS:
+            truncated_json_data = full_json_data[:MAX_LLM_INPUT_CHARS]
+            last_bracket = truncated_json_data.rfind('}')
+            if last_bracket != -1:
+                truncated_json_data = truncated_json_data[:last_bracket + 1] + "...]"
             else:
-                truncated_formatted_data += (
-                    "..."  # Just append ellipsis if no newline found
-                )
-
+                truncated_json_data += "..."
+            
             logger.warning(
-                f"LLM input data truncated from {len(full_formatted_data)} to {len(truncated_formatted_data)} characters. "
+                f"LLM input data (JSON) truncated from {len(full_json_data)} to {len(truncated_json_data)} characters. "
                 "The LLM will process partial data. Consider refining filters for more targeted analysis."
             )
-            formatted_data_for_llm = truncated_formatted_data
+            return truncated_json_data
         else:
-            formatted_data_for_llm = full_formatted_data
-
-        return (
-            f"Analyze the following cloud spend data:\n\n"
-            f"{formatted_data_for_llm}\n\n"
-            f"Based on this data, please {context}. "
-            f"Be concise, clear, and actionable. Focus on key insights."
-        )
+            return full_json_data
 
 
 # Instantiate the LLMService as a singleton

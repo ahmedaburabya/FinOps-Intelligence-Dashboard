@@ -18,14 +18,19 @@ import {
   TableBody,
   TableContainer,
   Paper,
+  FormControl, // Added for Select
+  InputLabel, // Added for Select
+  Select, // Added for Select
+  MenuItem, // Added for Select
 } from '@mui/material';
 
 import { finopsApi } from '~/services';
-import { useFinopsOverview, useAggregatedCostData } from '~/hooks/useFinopsData';
+import { useFinopsOverview, useAggregatedCostData, useDistinctServices, useDistinctProjects, useDistinctSkus } from '~/hooks/useFinopsData'; // Added useDistinctServices, useDistinctProjects, useDistinctSkus
 import LoadingSpinner from '~/components/common/LoadingSpinner';
 import SnackbarAlert from '~/components/common/SnackbarAlert';
-// @ts-ignore // Adding this here as it seems to be the only way to bypass TS6196 with verbatimModuleSyntax
+import { AxiosError } from 'axios';
 import type { AggregatedCostData, FinopsOverview, LLMInsight } from '~/types/finops'; // Using import type
+import AIInsightPanel from '~/components/AIInsightPanel'; // Import the new AIInsightPanel component
 
 const DashboardPage: React.FC = () => {
   const [projectFilter, setProjectFilter] = useState<string>('');
@@ -60,6 +65,25 @@ const DashboardPage: React.FC = () => {
     end_date: endDateFilter ? new Date(endDateFilter).toISOString() : undefined,
   });
 
+  const {
+    distinctServices,
+    loading: distinctServicesLoading,
+    error: distinctServicesError,
+  } = useDistinctServices(); // Fetch distinct services
+
+  const {
+    distinctProjects,
+    loading: distinctProjectsLoading,
+    error: distinctProjectsError,
+  } = useDistinctProjects(); // Fetch distinct projects
+
+  const {
+    distinctSkus,
+    loading: distinctSkusLoading,
+    error: distinctSkusError,
+  } = useDistinctSkus(); // Fetch distinct SKUs
+
+
   const [llmSummaryLoading, setLlmSummaryLoading] = useState<boolean>(false);
   const [llmSummaryError, setLlmSummaryError] = useState<string | null>(null);
   const [llmInsight, setLlmInsight] = useState<LLMInsight | null>(null);
@@ -87,7 +111,9 @@ const DashboardPage: React.FC = () => {
     setLlmInsight(null);
     try {
       const summary = await finopsApi.generateSpendSummary({
+        service: serviceFilter || undefined,
         project: projectFilter || undefined,
+        sku: skuFilter || undefined,
         start_date: startDateFilter ? new Date(startDateFilter).toISOString() : undefined,
         end_date: endDateFilter ? new Date(endDateFilter).toISOString() : undefined,
       });
@@ -95,10 +121,11 @@ const DashboardPage: React.FC = () => {
       setSnackbarMessage('AI spend summary generated successfully!');
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to generate LLM summary:', err);
-      setLlmSummaryError(err.response?.data?.detail || 'Failed to generate AI spend summary.');
-      setSnackbarMessage(err.response?.data?.detail || 'Failed to generate AI spend summary.');
+      const axiosError = err as AxiosError<{ detail?: string }>;
+      setLlmSummaryError(axiosError.response?.data?.detail || 'Failed to generate AI spend summary.');
+      setSnackbarMessage(axiosError.response?.data?.detail || 'Failed to generate AI spend summary.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
@@ -127,7 +154,7 @@ const DashboardPage: React.FC = () => {
     }
   }, [costData, costDataLoading, itemsPerPage, currentPage]);
 
-  if (overviewLoading && costDataLoading) {
+  if (overviewLoading && costDataLoading && distinctServicesLoading && distinctProjectsLoading && distinctSkusLoading) { // Added distinctProjectsLoading and distinctSkusLoading
     return <LoadingSpinner message="Loading FinOps Dashboard..." />;
   }
 
@@ -144,13 +171,16 @@ const DashboardPage: React.FC = () => {
         onClose={handleSnackbarClose}
       />
 
-      {(overviewError || costDataError || llmSummaryError) && (
+      {(overviewError || costDataError || llmSummaryError || distinctServicesError || distinctProjectsError || distinctSkusError) && ( // Added distinctProjectsError and distinctSkusError
         <SnackbarAlert
           open={true} // Always open if there's an error
           message={
             overviewError?.detail ||
             costDataError?.detail ||
             llmSummaryError ||
+            distinctServicesError?.message || // Display distinctServicesError message
+            distinctProjectsError?.message || // Display distinctProjectsError message
+            distinctSkusError?.message || // Display distinctSkusError message
             'An unknown error occurred.'
           }
           severity="error"
@@ -158,6 +188,9 @@ const DashboardPage: React.FC = () => {
             overviewError ? refetchOverview() : null;
             costDataError ? refetchCostData() : null;
             llmSummaryError ? setLlmSummaryError(null) : null;
+            distinctServicesError ? distinctServicesError.message = null : null; // Clear distinctServicesError
+            distinctProjectsError ? distinctProjectsError.message = null : null; // Clear distinctProjectsError
+            distinctSkusError ? distinctSkusError.message = null : null; // Clear distinctSkusError
           }}
           autoHideDuration={undefined} // Changed from null to undefined
         />
@@ -200,6 +233,36 @@ const DashboardPage: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
+            {/* New card for Daily Burn Rate MTD */}
+            <Grid item xs={12} sm={6} md={3} component="div">
+              <Card raised>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom>
+                    Daily Burn Rate (average)
+                  </Typography>
+                  <Typography variant="h5">
+                    {overview?.daily_burn_rate_mtd !== undefined
+                      ? `$${overview.daily_burn_rate_mtd.toFixed(2)}`
+                      : 'N/A'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            {/* New card for Projected Month-End Spend */}
+            <Grid item xs={12} sm={6} md={3} component="div">
+              <Card raised>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom>
+                    Projected Month-End Spend
+                  </Typography>
+                  <Typography variant="h5">
+                    {overview?.projected_month_end_spend !== undefined
+                      ? `$${overview.projected_month_end_spend.toFixed(2)}`
+                      : 'N/A'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
             {/* Add more overview cards here if needed */}
           </Grid>
         )}
@@ -212,31 +275,97 @@ const DashboardPage: React.FC = () => {
         </Typography>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3} component="div">
-            <TextField
-              label="Project ID"
-              variant="outlined"
-              fullWidth
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-            />
+            <FormControl fullWidth variant="outlined" sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}>
+              <InputLabel id="project-select-label">Project ID</InputLabel>
+              <Select
+                labelId="project-select-label"
+                id="project-select"
+                value={projectFilter}
+                label="Project ID"
+                onChange={(e) => setProjectFilter(e.target.value as string)}
+                disabled={distinctProjectsLoading}
+                MenuProps={{ PaperProps: { style: { maxHeight: 480 } } }} // Set max height for dropdown
+              >
+                <MenuItem value="">
+                  <em>All</em>
+                </MenuItem>
+                {distinctProjectsLoading ? (
+                  <MenuItem disabled>
+                    <CircularProgress size={20} /> Loading...
+                  </MenuItem>
+                ) : distinctProjectsError ? (
+                  <MenuItem disabled>Error loading projects</MenuItem>
+                ) : (
+                  distinctProjects.map((project) => (
+                    <MenuItem key={project} value={project}>
+                      {project}
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={3} component="div">
-            <TextField
-              label="Service"
-              variant="outlined"
-              fullWidth
-              value={serviceFilter}
-              onChange={(e) => setServiceFilter(e.target.value)}
-            />
+            <FormControl fullWidth variant="outlined" sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}>
+              <InputLabel id="service-select-label">Service</InputLabel>
+              <Select
+                labelId="service-select-label"
+                id="service-select"
+                value={serviceFilter}
+                label="Service"
+                onChange={(e) => setServiceFilter(e.target.value as string)}
+                disabled={distinctServicesLoading}
+                MenuProps={{ PaperProps: { style: { maxHeight: 480 } } }} // Set max height for dropdown
+              >
+                <MenuItem value="">
+                  <em>All</em>
+                </MenuItem>
+                {distinctServicesLoading ? (
+                  <MenuItem disabled>
+                    <CircularProgress size={20} /> Loading...
+                  </MenuItem>
+                ) : distinctServicesError ? (
+                  <MenuItem disabled>Error loading services</MenuItem>
+                ) : (
+                  distinctServices.map((service) => (
+                    <MenuItem key={service} value={service}>
+                      {service}
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={3} component="div">
-            <TextField
-              label="SKU"
-              variant="outlined"
-              fullWidth
-              value={skuFilter}
-              onChange={(e) => setSkuFilter(e.target.value)}
-            />
+            <FormControl fullWidth variant="outlined" sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}>
+              <InputLabel id="sku-select-label">SKU</InputLabel>
+              <Select
+                labelId="sku-select-label"
+                id="sku-select"
+                value={skuFilter}
+                label="SKU"
+                onChange={(e) => setSkuFilter(e.target.value as string)}
+                disabled={distinctSkusLoading}
+                MenuProps={{ PaperProps: { style: { maxHeight: 480 } } }} // Set max height for dropdown
+              >
+                <MenuItem value="">
+                  <em>All</em>
+                </MenuItem>
+                {distinctSkusLoading ? (
+                  <MenuItem disabled>
+                    <CircularProgress size={20} /> Loading...
+                  </MenuItem>
+                ) : distinctSkusError ? (
+                  <MenuItem disabled>Error loading SKUs</MenuItem>
+                ) : (
+                  distinctSkus.map((sku) => (
+                    <MenuItem key={sku} value={sku}>
+                      {sku}
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={3} component="div">
             <TextField
@@ -244,6 +373,7 @@ const DashboardPage: React.FC = () => {
               type="date"
               variant="outlined"
               fullWidth
+              sx={{ minWidth: '240px', maxWidth: '240px' }}
               InputLabelProps={{ shrink: true }}
               value={startDateFilter}
               onChange={(e) => setStartDateFilter(e.target.value)}
@@ -255,6 +385,7 @@ const DashboardPage: React.FC = () => {
               type="date"
               variant="outlined"
               fullWidth
+              sx={{ minWidth: '240px', maxWidth: '240px' }}
               InputLabelProps={{ shrink: true }}
               value={endDateFilter}
               onChange={(e) => setEndDateFilter(e.target.value)}
@@ -358,6 +489,15 @@ const DashboardPage: React.FC = () => {
           </Card>
         )}
       </Box>
+
+      {/* AI-Powered FinOps Insights Panel */}
+      <AIInsightPanel
+        currentProjectFilter={projectFilter}
+        currentServiceFilter={serviceFilter}
+        currentSkuFilter={skuFilter}
+        currentStartDateFilter={startDateFilter}
+        currentEndDateFilter={endDateFilter}
+      />
     </Container>
   );
 };
