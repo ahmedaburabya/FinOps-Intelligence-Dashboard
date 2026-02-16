@@ -6,6 +6,7 @@ and transform the data into a usable format.
 """
 
 import os
+import json
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import logging
@@ -40,23 +41,13 @@ class BigQueryService:
         """
         try:
             # Load credentials from environment variables
-            service_account_info = {
-                "type": os.getenv("GOOGLE_TYPE"),
-                "project_id": os.getenv("GOOGLE_PROJECT_ID"),
-                "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
-                "private_key": os.getenv("GOOGLE_PRIVATE_KEY"),
-                "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
-                "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-                "auth_uri": os.getenv("GOOGLE_AUTH_URI"),
-                "token_uri": os.getenv("GOOGLE_TOKEN_URI"),
-                "auth_provider_x509_cert_url": os.getenv("GOOGLE_AUTH_PROVIDER_X509_CERT_URL"),
-                "client_x509_cert_url": os.getenv("GOOGLE_CLIENT_X509_CERT_URL"),
-                "universe_domain": os.getenv("GOOGLE_UNIVERSE_DOMAIN"),
-            }
+            service_account_info_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            if not service_account_info_str:
+                raise ValueError(
+                    "GOOGLE_APPLICATION_CREDENTIALS environment variable is not set."
+                )
 
-            if service_account_info["private_key"]:
-                service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
-
+            service_account_info = json.loads(service_account_info_str)
             credentials = service_account.Credentials.from_service_account_info(
                 service_account_info,
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
