@@ -9,16 +9,19 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 import asyncio  # Import asyncio for running blocking calls in a thread pool
-from datetime import datetime, date # Added datetime import, also date for stricter type hinting
+from datetime import (
+    datetime,
+    date,
+)  # Added datetime import, also date for stricter type hinting
 
 # Google Generative AI imports
 import google.generativeai as genai
-# 
-# 
+
+#
+#
 
 
-from app import schemas, crud # Import crud to potentially use in tools
-
+from app import schemas, crud  # Import crud to potentially use in tools
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,7 @@ LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemini-2.5-flash")  # The model to
 
 # Max character limit for LLM input to avoid exceeding context window.
 # This is a rough estimate and should be tuned based on the specific model's token limits.
-MAX_LLM_INPUT_CHARS = 200000 # Adjusted to be more conservative for token limits
+MAX_LLM_INPUT_CHARS = 200000  # Adjusted to be more conservative for token limits
 
 
 class LLMService:
@@ -93,13 +96,13 @@ class LLMService:
             raise RuntimeError("Google Generative AI LLM model is not initialized.")
 
         try:
-            generation_config = genai.GenerationConfig( # Use genai.GenerationConfig
+            generation_config = genai.GenerationConfig(  # Use genai.GenerationConfig
                 temperature=0.2,  # Lower temperature for more focused output
                 top_p=0.8,
                 top_k=40,
-                max_output_tokens=8192, # Increased token limit for more detailed responses
+                max_output_tokens=8192,  # Increased token limit for more detailed responses
             )
-            
+
             # LLM calls can be blocking, so run in a thread pool to avoid blocking the event loop
             loop = asyncio.get_running_loop()
             response = await loop.run_in_executor(
@@ -217,12 +220,14 @@ class LLMService:
         if project:
             data_header_parts.append(f"For Project ID: {project}")
         if start_date and end_date:
-            data_header_parts.append(f"From {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+            data_header_parts.append(
+                f"From {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+            )
         elif start_date:
             data_header_parts.append(f"From {start_date.strftime('%Y-%m-%d')}")
         elif end_date:
             data_header_parts.append(f"Up to {end_date.strftime('%Y-%m-%d')}")
-        
+
         data_header = "\n".join(data_header_parts) + "\n\n"
 
         formatted_data_for_llm = self._format_data_for_llm_content(aggregated_data)
@@ -266,8 +271,9 @@ class LLMService:
             instruction = f"Answer the following question based on the provided cloud spend data: '{query}'."
             instruction += " If the data is insufficient to answer, state that."
         else:
-            instruction = f"Process the following request using the cloud spend data: '{query}'."
-
+            instruction = (
+                f"Process the following request using the cloud spend data: '{query}'."
+            )
 
         full_prompt = (
             f"{base_prompt}\n\n"
@@ -286,21 +292,26 @@ class LLMService:
         If the data exceeds MAX_LLM_INPUT_CHARS, it will be truncated with a warning.
         """
         if not aggregated_data:
-            return "[]" # Return empty JSON array if no data
+            return "[]"  # Return empty JSON array if no data
 
         # Convert aggregated_data SQLAlchemy model objects to Pydantic schema objects for JSON serialization
-        data_as_dicts = [schemas.AggregatedCostData.model_validate(item).model_dump_json(exclude_unset=True) for item in aggregated_data]
+        data_as_dicts = [
+            schemas.AggregatedCostData.model_validate(item).model_dump_json(
+                exclude_unset=True
+            )
+            for item in aggregated_data
+        ]
         full_json_data = f"[{', '.join(data_as_dicts)}]"
-        
+
         # Simple truncation if it's too long
         if len(full_json_data) > MAX_LLM_INPUT_CHARS:
             truncated_json_data = full_json_data[:MAX_LLM_INPUT_CHARS]
-            last_bracket = truncated_json_data.rfind('}')
+            last_bracket = truncated_json_data.rfind("}")
             if last_bracket != -1:
-                truncated_json_data = truncated_json_data[:last_bracket + 1] + "...]"
+                truncated_json_data = truncated_json_data[: last_bracket + 1] + "...]"
             else:
                 truncated_json_data += "..."
-            
+
             logger.warning(
                 f"LLM input data (JSON) truncated from {len(full_json_data)} to {len(truncated_json_data)} characters. "
                 "The LLM will process partial data. Consider refining filters for more targeted analysis."

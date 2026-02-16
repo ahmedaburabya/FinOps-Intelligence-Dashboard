@@ -6,7 +6,7 @@ away the direct SQLAlchemy session management from the API endpoints.
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timedelta # timedelta added here
+from datetime import datetime, timedelta  # timedelta added here
 from typing import List, Optional
 
 from app import models, schemas
@@ -27,7 +27,7 @@ def get_aggregated_cost_data_by_id(db: Session, cost_data_id: int):
 def get_aggregated_cost_data(
     db: Session,
     skip: int = 0,
-    limit: Optional[int] = 100, # Changed to Optional[int] for dynamic limiting
+    limit: Optional[int] = 100,  # Changed to Optional[int] for dynamic limiting
     service: Optional[str] = None,
     project: Optional[str] = None,
     sku: Optional[str] = None,
@@ -50,10 +50,10 @@ def get_aggregated_cost_data(
         query = query.filter(models.AggregatedCostData.time_period <= end_date)
 
     query = query.offset(skip)
-    if limit is not None: # Conditionally apply limit
+    if limit is not None:  # Conditionally apply limit
         query = query.limit(limit)
 
-    return query.all() # Always call .all() at the end
+    return query.all()  # Always call .all() at the end
 
 
 def create_aggregated_cost_data(
@@ -185,16 +185,18 @@ def get_daily_burn_rate_mtd(db: Session, project: Optional[str] = None):
     Calculates the average daily spend in the current month (Daily Burn Rate MTD).
     Daily Burn Rate = MTD Spend / Number of Days Elapsed in current month.
     """
-    mtd_spend = get_mtd_spend(db, project) # Reuse existing MTD calculation
+    mtd_spend = get_mtd_spend(db, project)  # Reuse existing MTD calculation
 
     now_utc = datetime.utcnow()
-    current_month_start = now_utc.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
+    current_month_start = now_utc.replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+
     # Calculate number of days elapsed in current month
     # This includes the current day.
     num_days_elapsed = (now_utc.date() - current_month_start.date()).days + 1
 
-    if num_days_elapsed == 0: # Avoid division by zero if it's somehow day 0
+    if num_days_elapsed == 0:  # Avoid division by zero if it's somehow day 0
         return 0.0
 
     daily_burn_rate = mtd_spend / num_days_elapsed
@@ -212,9 +214,13 @@ def get_projected_month_end_spend(db: Session, project: Optional[str] = None):
     now_utc = datetime.utcnow()
     # Calculate days remaining in current month
     # Get the first day of the next month
-    next_month = now_utc.replace(day=28) + timedelta(days=4)  # move to the 28th, then +4 to ensure we're in next month
-    month_end = next_month.replace(day=1) - timedelta(days=1)  # last day of current month
-    
+    next_month = now_utc.replace(day=28) + timedelta(
+        days=4
+    )  # move to the 28th, then +4 to ensure we're in next month
+    month_end = next_month.replace(day=1) - timedelta(
+        days=1
+    )  # last day of current month
+
     days_remaining = (month_end.date() - now_utc.date()).days
 
     projected_total = mtd_spend + (daily_burn_rate_mtd * days_remaining)
@@ -244,7 +250,9 @@ def get_distinct_projects_from_db(db: Session) -> List[str]:
     distinct_projects = (
         db.query(models.AggregatedCostData.project)
         .distinct()
-        .filter(models.AggregatedCostData.project.isnot(None)) # Filter out None/NULL projects
+        .filter(
+            models.AggregatedCostData.project.isnot(None)
+        )  # Filter out None/NULL projects
         .order_by(models.AggregatedCostData.project)
         .all()
     )
@@ -258,7 +266,7 @@ def get_distinct_skus_from_db(db: Session) -> List[str]:
     distinct_skus = (
         db.query(models.AggregatedCostData.sku)
         .distinct()
-        .filter(models.AggregatedCostData.sku.isnot(None)) # Filter out None/NULL SKUs
+        .filter(models.AggregatedCostData.sku.isnot(None))  # Filter out None/NULL SKUs
         .order_by(models.AggregatedCostData.sku)
         .all()
     )

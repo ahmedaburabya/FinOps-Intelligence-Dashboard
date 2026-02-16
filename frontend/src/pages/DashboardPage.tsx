@@ -25,7 +25,13 @@ import {
 } from '@mui/material';
 
 import { finopsApi } from '~/services';
-import { useFinopsOverview, useAggregatedCostData, useDistinctServices, useDistinctProjects, useDistinctSkus } from '~/hooks/useFinopsData'; // Added useDistinctServices, useDistinctProjects, useDistinctSkus
+import {
+  useFinopsOverview,
+  useAggregatedCostData,
+  useDistinctServices,
+  useDistinctProjects,
+  useDistinctSkus,
+} from '~/hooks/useFinopsData'; // Added useDistinctServices, useDistinctProjects, useDistinctSkus
 import LoadingSpinner from '~/components/common/LoadingSpinner';
 import SnackbarAlert from '~/components/common/SnackbarAlert';
 import { AxiosError } from 'axios';
@@ -83,7 +89,6 @@ const DashboardPage: React.FC = () => {
     error: distinctSkusError,
   } = useDistinctSkus(); // Fetch distinct SKUs
 
-
   const [llmSummaryLoading, setLlmSummaryLoading] = useState<boolean>(false);
   const [llmSummaryError, setLlmSummaryError] = useState<string | null>(null);
   const [llmInsight, setLlmInsight] = useState<LLMInsight | null>(null);
@@ -124,8 +129,12 @@ const DashboardPage: React.FC = () => {
     } catch (err: unknown) {
       console.error('Failed to generate LLM summary:', err);
       const axiosError = err as AxiosError<{ detail?: string }>;
-      setLlmSummaryError(axiosError.response?.data?.detail || 'Failed to generate AI spend summary.');
-      setSnackbarMessage(axiosError.response?.data?.detail || 'Failed to generate AI spend summary.');
+      setLlmSummaryError(
+        axiosError.response?.data?.detail || 'Failed to generate AI spend summary.',
+      );
+      setSnackbarMessage(
+        axiosError.response?.data?.detail || 'Failed to generate AI spend summary.',
+      );
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
@@ -154,7 +163,14 @@ const DashboardPage: React.FC = () => {
     }
   }, [costData, costDataLoading, itemsPerPage, currentPage]);
 
-  if (overviewLoading && costDataLoading && distinctServicesLoading && distinctProjectsLoading && distinctSkusLoading) { // Added distinctProjectsLoading and distinctSkusLoading
+  if (
+    overviewLoading &&
+    costDataLoading &&
+    distinctServicesLoading &&
+    distinctProjectsLoading &&
+    distinctSkusLoading
+  ) {
+    // Added distinctProjectsLoading and distinctSkusLoading
     return <LoadingSpinner message="Loading FinOps Dashboard..." />;
   }
 
@@ -171,7 +187,12 @@ const DashboardPage: React.FC = () => {
         onClose={handleSnackbarClose}
       />
 
-      {(overviewError || costDataError || llmSummaryError || distinctServicesError || distinctProjectsError || distinctSkusError) && ( // Added distinctProjectsError and distinctSkusError
+      {(overviewError ||
+        costDataError ||
+        llmSummaryError ||
+        distinctServicesError ||
+        distinctProjectsError ||
+        distinctSkusError) && ( // Added distinctProjectsError and distinctSkusError
         <SnackbarAlert
           open={true} // Always open if there's an error
           message={
@@ -188,9 +209,9 @@ const DashboardPage: React.FC = () => {
             overviewError ? refetchOverview() : null;
             costDataError ? refetchCostData() : null;
             llmSummaryError ? setLlmSummaryError(null) : null;
-            distinctServicesError ? distinctServicesError.message = null : null; // Clear distinctServicesError
-            distinctProjectsError ? distinctProjectsError.message = null : null; // Clear distinctProjectsError
-            distinctSkusError ? distinctSkusError.message = null : null; // Clear distinctSkusError
+            distinctServicesError ? (distinctServicesError.message = null) : null; // Clear distinctServicesError
+            distinctProjectsError ? (distinctProjectsError.message = null) : null; // Clear distinctProjectsError
+            distinctSkusError ? (distinctSkusError.message = null) : null; // Clear distinctSkusError
           }}
           autoHideDuration={undefined} // Changed from null to undefined
         />
@@ -275,7 +296,11 @@ const DashboardPage: React.FC = () => {
         </Typography>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3} component="div">
-            <FormControl fullWidth variant="outlined" sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}>
+            <FormControl
+              fullWidth
+              variant="outlined"
+              sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}
+            >
               <InputLabel id="project-select-label">Project ID</InputLabel>
               <Select
                 labelId="project-select-label"
@@ -306,7 +331,11 @@ const DashboardPage: React.FC = () => {
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={3} component="div">
-            <FormControl fullWidth variant="outlined" sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}>
+            <FormControl
+              fullWidth
+              variant="outlined"
+              sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}
+            >
               <InputLabel id="service-select-label">Service</InputLabel>
               <Select
                 labelId="service-select-label"
@@ -337,7 +366,11 @@ const DashboardPage: React.FC = () => {
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={3} component="div">
-            <FormControl fullWidth variant="outlined" sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}>
+            <FormControl
+              fullWidth
+              variant="outlined"
+              sx={{ minWidth: '240px', maxWidth: '240px', height: '56px' }}
+            >
               <InputLabel id="sku-select-label">SKU</InputLabel>
               <Select
                 labelId="sku-select-label"

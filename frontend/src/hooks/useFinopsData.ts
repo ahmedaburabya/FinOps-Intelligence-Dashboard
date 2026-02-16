@@ -1,11 +1,9 @@
-
 // frontend/src/hooks/useFinopsData.ts
 import { useState, useEffect, useCallback } from 'react';
 import { finopsApi } from '../services';
 import type { AggregatedCostData, FinopsOverview } from '../types/finops';
 import type { ApiError } from '../types/common';
 import { useQuery } from '@tanstack/react-query';
-
 
 // Custom hook for fetching FinOps Overview data
 export const useFinopsOverview = (project?: string) => {
@@ -120,4 +118,3 @@ export const useDistinctSkus = () => {
 
   return { distinctSkus: distinctSkus || [], loading, error };
 };
-

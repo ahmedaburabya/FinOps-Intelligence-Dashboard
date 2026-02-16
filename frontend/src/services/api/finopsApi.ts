@@ -118,12 +118,16 @@ export const finopsApi = {
   },
 
   getDistinctProjects: async (): Promise<string[]> => {
-    const response = await axiosInstance.get<string[]>(`${FINOPS_BASE_PATH}/services/distinct-projects`);
+    const response = await axiosInstance.get<string[]>(
+      `${FINOPS_BASE_PATH}/services/distinct-projects`,
+    );
     return response.data;
   },
 
   getDistinctSkus: async (): Promise<string[]> => {
-    const response = await axiosInstance.get<string[]>(`${FINOPS_BASE_PATH}/services/distinct-skus`);
+    const response = await axiosInstance.get<string[]>(
+      `${FINOPS_BASE_PATH}/services/distinct-skus`,
+    );
     return response.data;
   },
 

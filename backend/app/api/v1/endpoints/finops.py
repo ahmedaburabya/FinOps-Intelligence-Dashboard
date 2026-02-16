@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Any, Dict
 from datetime import datetime, date
 import asyncio  # Import asyncio for running blocking calls in a thread pool
-import logging # Import logging
-logger = logging.getLogger(__name__) # Initialize logger
+import logging  # Import logging
+
+logger = logging.getLogger(__name__)  # Initialize logger
 
 from app import crud, schemas
 from app.database import get_db
@@ -136,14 +137,17 @@ def get_finops_overview(
     mtd_spend = crud.get_mtd_spend(db=db, project=project)
     burn_rate = crud.get_burn_rate(db=db, project=project)  # Defaults to 30 days
     daily_burn_rate_mtd = crud.get_daily_burn_rate_mtd(db=db, project=project)
-    projected_month_end_spend = crud.get_projected_month_end_spend(db=db, project=project) # New calculation
+    projected_month_end_spend = crud.get_projected_month_end_spend(
+        db=db, project=project
+    )  # New calculation
 
     return {
         "mtd_spend": mtd_spend,
         "burn_rate_estimated_monthly": burn_rate,
         "daily_burn_rate_mtd": daily_burn_rate_mtd,
-        "projected_month_end_spend": projected_month_end_spend, # Include new metric
+        "projected_month_end_spend": projected_month_end_spend,  # Include new metric
     }
+
 
 # --- LLM Integration Endpoints ---
 @router.post(
@@ -175,8 +179,8 @@ async def generate_ai_spend_summary(
     # 1. Retrieve ALL relevant aggregated cost data from PostgreSQL based on filters (no skip/limit)
     aggregated_data = crud.get_aggregated_cost_data(
         db=db,
-        skip=0, # Ensure no skip
-        limit=None, # Ensure all data is fetched (no limit)
+        skip=0,  # Ensure no skip
+        limit=None,  # Ensure all data is fetched (no limit)
         service=service,
         project=project,
         sku=sku,
@@ -193,9 +197,9 @@ async def generate_ai_spend_summary(
     # 2. Call the LLM service to generate the summary
     summary_text = await llm_service.generate_spend_summary(
         aggregated_data,
-        project=project, # Pass project filter to LLM service for context
-        start_date=start_date, # Pass start_date filter to LLM service for context
-        end_date=end_date # Pass end_date filter to LLM service for context
+        project=project,  # Pass project filter to LLM service for context
+        start_date=start_date,  # Pass start_date filter to LLM service for context
+        end_date=end_date,  # Pass end_date filter to LLM service for context
     )
 
     # 3. Store the generated insight in the database
@@ -207,6 +211,7 @@ async def generate_ai_spend_summary(
     db_insight = crud.create_llm_insight(db=db, insight=insight_create)
 
     return db_insight
+
 
 @router.post(
     "/llm-insight",
@@ -235,10 +240,10 @@ def create_llm_insight(
 
 @router.post(
     "/insights/chat",
-    response_model=str, # LLM typically returns a string
+    response_model=str,  # LLM typically returns a string
     summary="Get AI-driven insights based on natural language query or insight type",
     description="Provides AI-generated analysis, summaries, anomaly detection, "
-                "predictions, or recommendations based on aggregated cost data and user input.",
+    "predictions, or recommendations based on aggregated cost data and user input.",
 )
 async def get_ai_chat_insight(
     request: schemas.AIInsightRequest,
@@ -254,7 +259,7 @@ async def get_ai_chat_insight(
     aggregated_data = crud.get_aggregated_cost_data(
         db=db,
         skip=0,
-        limit=None, # Fetch all relevant data for AI analysis
+        limit=None,  # Fetch all relevant data for AI analysis
         service=request.service,
         project=request.project,
         sku=request.sku,
@@ -274,7 +279,7 @@ async def get_ai_chat_insight(
     try:
         llm_response = await llm_service.get_ai_insight(
             insight_type=request.insight_type,
-            query=request.query or "", # Ensure query is not None
+            query=request.query or "",  # Ensure query is not None
             aggregated_data=aggregated_data,
             project=request.project,
             start_date=request.start_date,
@@ -305,7 +310,8 @@ def get_distinct_services_from_postgresql(db: Session = Depends(get_db)):
         return distinct_services
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to retrieve distinct services from PostgreSQL: {e}"
+            status_code=500,
+            detail=f"Failed to retrieve distinct services from PostgreSQL: {e}",
         )
 
 
@@ -325,7 +331,8 @@ def get_distinct_projects_from_postgresql(db: Session = Depends(get_db)):
         return distinct_projects
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to retrieve distinct project IDs from PostgreSQL: {e}"
+            status_code=500,
+            detail=f"Failed to retrieve distinct project IDs from PostgreSQL: {e}",
         )
 
 
@@ -345,7 +352,8 @@ def get_distinct_skus_from_postgresql(db: Session = Depends(get_db)):
         return distinct_skus
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to retrieve distinct SKUs from PostgreSQL: {e}"
+            status_code=500,
+            detail=f"Failed to retrieve distinct SKUs from PostgreSQL: {e}",
         )
 
 

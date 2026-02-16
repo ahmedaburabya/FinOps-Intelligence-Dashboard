@@ -40,7 +40,11 @@ const AIInsightPanel: React.FC<AIInsightPanelProps> = ({
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  const { mutate: getInsight, isPending: isLoading, error } = useMutation({
+  const {
+    mutate: getInsight,
+    isPending: isLoading,
+    error,
+  } = useMutation({
     mutationFn: (request: AIInsightRequest) => finopsApi.getAIInsight(request),
     onSuccess: (data) => {
       setAiResponse(data);

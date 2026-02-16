@@ -37,8 +37,6 @@ export interface LLMInsight extends LLMInsightBase {
   updated_at: string;
 }
 
-
-
 export interface AggregatedCostDataWithInsights extends AggregatedCostData {
   llm_insights: LLMInsight[];
 }
