@@ -1,15 +1,30 @@
-permissions:
-  id-token: write
-  contents: read
+name: GCP Auth Test
 
-steps:
-  - uses: actions/checkout@v4
+on:
+  push:
+    branches:
+      - main
 
-  - uses: google-github-actions/auth@v2
-    with:
-      workload_identity_provider: projects/229203399238/locations/global/workloadIdentityPools/ci-pool/providers/github-provider
-      service_account: ci-deployer@finops-intelligence-dashboard.iam.gserviceaccount.com
+jobs:
+  auth-test:
+    runs-on: ubuntu-latest
 
-  - uses: google-github-actions/setup-gcloud@v2
+    permissions:
+      id-token: write
+      contents: read
 
-  - run: gcloud auth list
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/229203399238/locations/global/workloadIdentityPools/ci-pool/providers/github-provider
+          service_account: ci-deployer@finops-intelligence-dashboard.iam.gserviceaccount.com
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify Auth
+        run: gcloud auth list
