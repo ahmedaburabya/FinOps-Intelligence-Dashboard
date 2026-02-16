@@ -101,3 +101,23 @@ class AggregatedCostDataWithInsights(AggregatedCostData):
     """
 
     llm_insights: list[LLMInsight] = []
+
+
+# --- AI Insight Request Schema ---
+class AIInsightRequest(BaseModel):
+    """
+    Schema for requests to the AI Insight endpoint.
+    Allows users to ask natural language queries or request specific types of insights.
+    """
+
+    query: Optional[str] = None  # User's natural language query
+    insight_type: str = (
+        "natural_query"  # e.g., "natural_query", "summary", "anomaly", "prediction", "recommendation"
+    )
+
+    # Optional filters to apply when fetching aggregated_data for the LLM context
+    project: Optional[str] = None
+    service: Optional[str] = None
+    sku: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None

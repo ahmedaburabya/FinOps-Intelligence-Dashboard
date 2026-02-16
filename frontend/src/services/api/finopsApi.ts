@@ -54,13 +54,15 @@ export const finopsApi = {
 
   // LLM Integration Endpoints
   generateSpendSummary: async (params?: {
+    service?: string;
     project?: string;
-    start_date?: string; // datetime-local format
-    end_date?: string; // datetime-local format
+    sku?: string;
+    start_date?: string;
+    end_date?: string;
   }): Promise<LLMInsight> => {
     const response = await axiosInstance.post<LLMInsight>(
       `${FINOPS_BASE_PATH}/generate-spend-summary`,
-      null,
+      null, // Request body is null for GET-like parameters
       { params },
     );
     return response.data;
@@ -107,6 +109,30 @@ export const finopsApi = {
       null,
       { params },
     );
+    return response.data;
+  },
+
+  getDistinctServices: async (): Promise<string[]> => {
+    const response = await axiosInstance.get<string[]>(`${FINOPS_BASE_PATH}/services/distinct-db`);
+    return response.data;
+  },
+
+  getDistinctProjects: async (): Promise<string[]> => {
+    const response = await axiosInstance.get<string[]>(
+      `${FINOPS_BASE_PATH}/services/distinct-projects`,
+    );
+    return response.data;
+  },
+
+  getDistinctSkus: async (): Promise<string[]> => {
+    const response = await axiosInstance.get<string[]>(
+      `${FINOPS_BASE_PATH}/services/distinct-skus`,
+    );
+    return response.data;
+  },
+
+  getAIInsight: async (request: AIInsightRequest): Promise<string> => {
+    const response = await axiosInstance.post<string>(`${FINOPS_BASE_PATH}/insights/chat`, request);
     return response.data;
   },
 };

@@ -44,4 +44,16 @@ export interface AggregatedCostDataWithInsights extends AggregatedCostData {
 export interface FinopsOverview {
   mtd_spend: number;
   burn_rate_estimated_monthly: number;
+  daily_burn_rate_mtd: number; // Added new field
+  projected_month_end_spend: number; // Added new field
+}
+
+export interface AIInsightRequest {
+  query?: string;
+  insight_type: 'natural_query' | 'summary' | 'anomaly' | 'prediction' | 'recommendation';
+  project?: string;
+  service?: string;
+  sku?: string;
+  start_date?: string; // ISO 8601 string
+  end_date?: string; // ISO 8601 string
 }

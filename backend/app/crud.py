@@ -6,7 +6,7 @@ away the direct SQLAlchemy session management from the API endpoints.
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, timedelta  # timedelta added here
 from typing import List, Optional
 
 from app import models, schemas
@@ -27,7 +27,7 @@ def get_aggregated_cost_data_by_id(db: Session, cost_data_id: int):
 def get_aggregated_cost_data(
     db: Session,
     skip: int = 0,
-    limit: int = 100,
+    limit: Optional[int] = 100,  # Changed to Optional[int] for dynamic limiting
     service: Optional[str] = None,
     project: Optional[str] = None,
     sku: Optional[str] = None,
@@ -49,7 +49,11 @@ def get_aggregated_cost_data(
     if end_date:
         query = query.filter(models.AggregatedCostData.time_period <= end_date)
 
-    return query.offset(skip).limit(limit).all()
+    query = query.offset(skip)
+    if limit is not None:  # Conditionally apply limit
+        query = query.limit(limit)
+
+    return query.all()  # Always call .all() at the end
 
 
 def create_aggregated_cost_data(
@@ -174,3 +178,96 @@ def get_burn_rate(db: Session, days: int = 30, project: Optional[str] = None):
     # Simple projection for monthly burn rate
     monthly_burn_rate = avg_daily_spend * 30
     return monthly_burn_rate
+
+
+def get_daily_burn_rate_mtd(db: Session, project: Optional[str] = None):
+    """
+    Calculates the average daily spend in the current month (Daily Burn Rate MTD).
+    Daily Burn Rate = MTD Spend / Number of Days Elapsed in current month.
+    """
+    mtd_spend = get_mtd_spend(db, project)  # Reuse existing MTD calculation
+
+    now_utc = datetime.utcnow()
+    current_month_start = now_utc.replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+
+    # Calculate number of days elapsed in current month
+    # This includes the current day.
+    num_days_elapsed = (now_utc.date() - current_month_start.date()).days + 1
+
+    if num_days_elapsed == 0:  # Avoid division by zero if it's somehow day 0
+        return 0.0
+
+    daily_burn_rate = mtd_spend / num_days_elapsed
+    return daily_burn_rate
+
+
+def get_projected_month_end_spend(db: Session, project: Optional[str] = None):
+    """
+    Calculates the projected total spend for the current month.
+    Projected Total = MTD Spend + (Daily Burn Rate (MTD) * Days Remaining)
+    """
+    mtd_spend = get_mtd_spend(db, project)
+    daily_burn_rate_mtd = get_daily_burn_rate_mtd(db, project)
+
+    now_utc = datetime.utcnow()
+    # Calculate days remaining in current month
+    # Get the first day of the next month
+    next_month = now_utc.replace(day=28) + timedelta(
+        days=4
+    )  # move to the 28th, then +4 to ensure we're in next month
+    month_end = next_month.replace(day=1) - timedelta(
+        days=1
+    )  # last day of current month
+
+    days_remaining = (month_end.date() - now_utc.date()).days
+
+    projected_total = mtd_spend + (daily_burn_rate_mtd * days_remaining)
+    return projected_total
+
+
+def get_distinct_services_from_db(db: Session) -> List[str]:
+    """
+    Retrieves a list of distinct service names from the AggregatedCostData table.
+    """
+    # Query for distinct values of the 'service' column
+    # The 'service' column in AggregatedCostData model is a String
+    distinct_services = (
+        db.query(models.AggregatedCostData.service)
+        .distinct()
+        .order_by(models.AggregatedCostData.service)
+        .all()
+    )
+    # Extract the service names from the list of Row objects
+    return [service[0] for service in distinct_services]
+
+
+def get_distinct_projects_from_db(db: Session) -> List[str]:
+    """
+    Retrieves a list of distinct project IDs from the AggregatedCostData table.
+    """
+    distinct_projects = (
+        db.query(models.AggregatedCostData.project)
+        .distinct()
+        .filter(
+            models.AggregatedCostData.project.isnot(None)
+        )  # Filter out None/NULL projects
+        .order_by(models.AggregatedCostData.project)
+        .all()
+    )
+    return [project[0] for project in distinct_projects]
+
+
+def get_distinct_skus_from_db(db: Session) -> List[str]:
+    """
+    Retrieves a list of distinct SKUs from the AggregatedCostData table.
+    """
+    distinct_skus = (
+        db.query(models.AggregatedCostData.sku)
+        .distinct()
+        .filter(models.AggregatedCostData.sku.isnot(None))  # Filter out None/NULL SKUs
+        .order_by(models.AggregatedCostData.sku)
+        .all()
+    )
+    return [sku[0] for sku in distinct_skus]

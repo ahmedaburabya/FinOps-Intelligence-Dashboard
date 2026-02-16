@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { finopsApi } from '../services';
 import type { AggregatedCostData, FinopsOverview } from '../types/finops';
 import type { ApiError } from '../types/common';
+import { useQuery } from '@tanstack/react-query';
 
 // Custom hook for fetching FinOps Overview data
 export const useFinopsOverview = (project?: string) => {
@@ -68,4 +69,52 @@ export const useAggregatedCostData = (params?: {
   }, [params?.skip, params?.limit]);
 
   return { costData, loading, error, refetchCostData: fetchCostData };
+};
+
+// Custom hook for fetching distinct services using React Query
+export const useDistinctServices = () => {
+  const {
+    data: distinctServices,
+    isLoading: loading,
+    error,
+  } = useQuery<string[], Error>({
+    queryKey: ['distinctServices'],
+    queryFn: finopsApi.getDistinctServices,
+    staleTime: 5 * 60 * 1000, // Data considered fresh for 5 minutes
+    cacheTime: 30 * 60 * 1000, // Data kept in cache for 30 minutes
+  });
+
+  return { distinctServices: distinctServices || [], loading, error };
+};
+
+// Custom hook for fetching distinct projects using React Query
+export const useDistinctProjects = () => {
+  const {
+    data: distinctProjects,
+    isLoading: loading,
+    error,
+  } = useQuery<string[], Error>({
+    queryKey: ['distinctProjects'],
+    queryFn: finopsApi.getDistinctProjects,
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 30 * 60 * 1000,
+  });
+
+  return { distinctProjects: distinctProjects || [], loading, error };
+};
+
+// Custom hook for fetching distinct SKUs using React Query
+export const useDistinctSkus = () => {
+  const {
+    data: distinctSkus,
+    isLoading: loading,
+    error,
+  } = useQuery<string[], Error>({
+    queryKey: ['distinctSkus'],
+    queryFn: finopsApi.getDistinctSkus,
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 30 * 60 * 1000,
+  });
+
+  return { distinctSkus: distinctSkus || [], loading, error };
 };

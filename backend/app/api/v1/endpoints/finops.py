@@ -9,6 +9,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Any, Dict
 from datetime import datetime, date
 import asyncio  # Import asyncio for running blocking calls in a thread pool
+import logging  # Import logging
+
+logger = logging.getLogger(__name__)  # Initialize logger
 
 from app import crud, schemas
 from app.database import get_db
@@ -126,13 +129,24 @@ def get_finops_overview(
     Provides a high-level overview of financial metrics from PostgreSQL, including:
     - **Month-to-Date (MTD) Spend**: Total cost incurred in the current calendar month.
     - **Burn Rate**: An estimated monthly spend based on recent daily average consumption (e.g., last 30 days).
+    - **Daily Burn Rate (MTD)**: Average daily spend in the current month.
+    - **Projected Month-End Spend**: Estimated total spend for the current month.
 
     Results can be filtered by a specific Google Cloud project.
     """
     mtd_spend = crud.get_mtd_spend(db=db, project=project)
     burn_rate = crud.get_burn_rate(db=db, project=project)  # Defaults to 30 days
+    daily_burn_rate_mtd = crud.get_daily_burn_rate_mtd(db=db, project=project)
+    projected_month_end_spend = crud.get_projected_month_end_spend(
+        db=db, project=project
+    )  # New calculation
 
-    return {"mtd_spend": mtd_spend, "burn_rate_estimated_monthly": burn_rate}
+    return {
+        "mtd_spend": mtd_spend,
+        "burn_rate_estimated_monthly": burn_rate,
+        "daily_burn_rate_mtd": daily_burn_rate_mtd,
+        "projected_month_end_spend": projected_month_end_spend,  # Include new metric
+    }
 
 
 # --- LLM Integration Endpoints ---
@@ -143,30 +157,35 @@ def get_finops_overview(
     summary="Generate an AI-driven spend summary using LLM",
     response_description="The newly created LLM insight record containing the spend summary.",
 )
-async def generate_ai_spend_summary(  # Changed to async
+async def generate_ai_spend_summary(
+    service: Optional[str] = Query(None, description="Filter by Google Cloud service"),
     project: Optional[str] = Query(
-        None,
-        description="Optional: Filter data by Google Cloud project ID for summary generation",
+        None, description="Filter by Google Cloud project ID"
     ),
+    sku: Optional[str] = Query(None, description="Filter by Stock Keeping Unit (SKU)"),
     start_date: Optional[datetime] = Query(
-        None, description="Optional: Start date for the period to summarize"
+        None, description="Filter records from this date (inclusive)"
     ),
     end_date: Optional[datetime] = Query(
-        None, description="Optional: End date for the period to summarize"
+        None, description="Filter records up to this date (inclusive)"
     ),
     db: Session = Depends(get_db),
 ):
     """
     Triggers the LLM to generate a natural language summary of cloud spend for a given period and/or project.
     The generated summary is stored as an LLMInsight and returned.
+    Data is fetched from PostgreSQL based on the provided query parameters.
     """
-    # 1. Retrieve relevant aggregated cost data from PostgreSQL
+    # 1. Retrieve ALL relevant aggregated cost data from PostgreSQL based on filters (no skip/limit)
     aggregated_data = crud.get_aggregated_cost_data(
         db=db,
+        skip=0,  # Ensure no skip
+        limit=None,  # Ensure all data is fetched (no limit)
+        service=service,
         project=project,
+        sku=sku,
         start_date=start_date,
         end_date=end_date,
-        limit=1000,  # Limit data passed to LLM to avoid excessive context or cost
     )
 
     if not aggregated_data:
@@ -177,14 +196,17 @@ async def generate_ai_spend_summary(  # Changed to async
 
     # 2. Call the LLM service to generate the summary
     summary_text = await llm_service.generate_spend_summary(
-        aggregated_data
-    )  # Added await
+        aggregated_data,
+        project=project,  # Pass project filter to LLM service for context
+        start_date=start_date,  # Pass start_date filter to LLM service for context
+        end_date=end_date,  # Pass end_date filter to LLM service for context
+    )
 
     # 3. Store the generated insight in the database
     insight_create = schemas.LLMInsightCreate(
         insight_type="spend_summary",
         insight_text=summary_text,
-        related_finops_data_id=None,  # Can be linked to specific data if aggregated
+        related_finops_data_id=None,
     )
     db_insight = crud.create_llm_insight(db=db, insight=insight_create)
 
@@ -216,7 +238,125 @@ def create_llm_insight(
     return db_insight
 
 
+@router.post(
+    "/insights/chat",
+    response_model=str,  # LLM typically returns a string
+    summary="Get AI-driven insights based on natural language query or insight type",
+    description="Provides AI-generated analysis, summaries, anomaly detection, "
+    "predictions, or recommendations based on aggregated cost data and user input.",
+)
+async def get_ai_chat_insight(
+    request: schemas.AIInsightRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Handles requests for various AI-driven FinOps insights.
+    - **query**: User's natural language question or specific request.
+    - **insight_type**: Specifies the desired type of insight (e.g., 'natural_query', 'summary', 'anomaly', 'prediction', 'recommendation').
+    - **project, service, sku, start_date, end_date**: Optional filters to refine the data context for the AI.
+    """
+    # 1. Fetch relevant aggregated cost data based on filters
+    aggregated_data = crud.get_aggregated_cost_data(
+        db=db,
+        skip=0,
+        limit=None,  # Fetch all relevant data for AI analysis
+        service=request.service,
+        project=request.project,
+        sku=request.sku,
+        start_date=request.start_date,
+        end_date=request.end_date,
+    )
+
+    if not aggregated_data and request.insight_type != "natural_query":
+        # For natural queries, the LLM might be able to answer generally even without specific data.
+        # For other insight types, data is crucial.
+        raise HTTPException(
+            status_code=404,
+            detail="No aggregated cost data found for the specified criteria to generate insight.",
+        )
+
+    # 2. Call the LLM service to get the insight
+    try:
+        llm_response = await llm_service.get_ai_insight(
+            insight_type=request.insight_type,
+            query=request.query or "",  # Ensure query is not None
+            aggregated_data=aggregated_data,
+            project=request.project,
+            start_date=request.start_date,
+            end_date=request.end_date,
+        )
+        return llm_response
+    except Exception as e:
+        logger.error(f"Failed to get AI insight: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate AI insight: {e}"
+        )
+
+
 # --- BigQuery Exploration & Ingestion Endpoints ---
+@router.get(
+    "/services/distinct-db",
+    response_model=List[str],
+    summary="Get list of distinct services from PostgreSQL",
+    description="Retrieves a list of distinct service descriptions available in the PostgreSQL aggregated cost data.",
+)
+def get_distinct_services_from_postgresql(db: Session = Depends(get_db)):
+    """
+    Retrieves a list of unique service names from the PostgreSQL aggregated cost data table.
+    This is useful for populating dropdowns or filters in the frontend.
+    """
+    try:
+        distinct_services = crud.get_distinct_services_from_db(db)
+        return distinct_services
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve distinct services from PostgreSQL: {e}",
+        )
+
+
+@router.get(
+    "/services/distinct-projects",
+    response_model=List[str],
+    summary="Get list of distinct project IDs from PostgreSQL",
+    description="Retrieves a list of distinct project IDs available in the PostgreSQL aggregated cost data.",
+)
+def get_distinct_projects_from_postgresql(db: Session = Depends(get_db)):
+    """
+    Retrieves a list of unique project IDs from the PostgreSQL aggregated cost data table.
+    This is useful for populating dropdowns or filters in the frontend.
+    """
+    try:
+        distinct_projects = crud.get_distinct_projects_from_db(db)
+        return distinct_projects
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve distinct project IDs from PostgreSQL: {e}",
+        )
+
+
+@router.get(
+    "/services/distinct-skus",
+    response_model=List[str],
+    summary="Get list of distinct SKUs from PostgreSQL",
+    description="Retrieves a list of distinct SKUs available in the PostgreSQL aggregated cost data.",
+)
+def get_distinct_skus_from_postgresql(db: Session = Depends(get_db)):
+    """
+    Retrieves a list of unique SKUs from the PostgreSQL aggregated cost data table.
+    This is useful for populating dropdowns or filters in the frontend.
+    """
+    try:
+        distinct_skus = crud.get_distinct_skus_from_db(db)
+        return distinct_skus
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve distinct SKUs from PostgreSQL: {e}",
+        )
+
+
 @router.get(
     "/bigquery/datasets",
     summary="List all accessible BigQuery datasets",

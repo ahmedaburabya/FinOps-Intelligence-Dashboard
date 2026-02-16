@@ -6,6 +6,7 @@ and transform the data into a usable format.
 """
 
 import os
+import json
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import logging
@@ -15,21 +16,6 @@ from typing import List, Dict, Any, Optional
 from app import schemas
 
 logger = logging.getLogger(__name__)
-
-# --- Configuration for BigQuery ---
-# The path to the Google Cloud service account key file, loaded from .env
-# This file is essential for authenticating with Google Cloud services like BigQuery.
-GOOGLE_APPLICATION_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-
-if not GOOGLE_APPLICATION_CREDENTIALS_PATH:
-    raise ValueError(
-        "GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. "
-        "Please provide the path to your service account key file."
-    )
-if not os.path.exists(GOOGLE_APPLICATION_CREDENTIALS_PATH):
-    raise FileNotFoundError(
-        f"Service account key file not found at: {GOOGLE_APPLICATION_CREDENTIALS_PATH}"
-    )
 
 
 class BigQueryService:
@@ -54,9 +40,16 @@ class BigQueryService:
         Initializes the BigQuery client using service account credentials.
         """
         try:
-            # Load credentials from the service account key file
-            credentials = service_account.Credentials.from_service_account_file(
-                GOOGLE_APPLICATION_CREDENTIALS_PATH,
+            # Load credentials from environment variables
+            service_account_info_str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            if not service_account_info_str:
+                raise ValueError(
+                    "GOOGLE_APPLICATION_CREDENTIALS environment variable is not set."
+                )
+
+            service_account_info = json.loads(service_account_info_str)
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info,
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )
             # Initialize the BigQuery client
