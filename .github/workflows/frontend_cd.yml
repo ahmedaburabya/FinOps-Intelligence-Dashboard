@@ -1,0 +1,47 @@
+name: Frontend CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering
+
+env:
+  PROJECT_ID: finops-intelligence-dashboard # Inferring from the image name
+  GAR_LOCATION: europe-west1 # Google Artifact Registry location
+  SERVICE_NAME: finops-dashboard
+  SERVICE_ACCOUNT_EMAIL: ci-deployer@finops-intelligence-dashboard.iam.gserviceaccount.com
+  WORKLOAD_IDENTITY_PROVIDER: projects/229203399238/locations/global/workloadIdentityPools/ci-pool/providers/github-provider
+
+jobs:
+  deploy:
+    permissions:
+      contents: 'read'
+      id-token: 'write' # Required for Workload Identity Federation
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      id: 'auth'
+      uses: 'google-github-actions/auth@v1'
+      with:
+        workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ env.SERVICE_ACCOUNT_EMAIL }}
+
+    - name: Set up Cloud SDK
+      uses: 'google-github-actions/setup-gcloud@v1'
+
+    - name: Configure Docker to use gcloud as a credential helper
+      run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
+
+    - name: Build and Push Frontend Docker Image
+      run: |
+        docker build -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/finops-intelligence/finops-dashboard:latest ./frontend
+        docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/finops-intelligence/finops-dashboard:latest
+
+    - name: Deploy to Google Cloud Run
+      run: |
+        gcloud run deploy ${{ env.SERVICE_NAME }} --image ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/finops-intelligence/finops-dashboard:latest --platform managed --region ${{ env.GAR_LOCATION }} --allow-unauthenticated --project ${{ env.PROJECT_ID }}

@@ -1,5 +1,4 @@
-# .github/workflows/backend_ci_cd.yml
-name: Backend CI/CD
+name: Backend CD
 
 on:
   push:
@@ -11,8 +10,8 @@ env:
   PROJECT_ID: finops-intelligence-dashboard # Inferring from the image name
   GAR_LOCATION: europe-west1 # Google Artifact Registry location
   SERVICE_NAME: fastapi-backend
-  SERVICE_ACCOUNT_EMAIL: ci-deployer@finops-intelligence-dashboard.iam.gserviceaccount.com # Placeholder, user needs to replace
-  WORKLOAD_IDENTITY_PROVIDER: projects/229203399238/locations/global/workloadIdentityPools/ci-pool/providers/github-provider # Placeholder, user needs to replace
+  SERVICE_ACCOUNT_EMAIL: ci-deployer@finops-intelligence-dashboard.iam.gserviceaccount.com
+  WORKLOAD_IDENTITY_PROVIDER: projects/229203399238/locations/global/workloadIdentityPools/ci-pool/providers/github-provider
 
 jobs:
   deploy:
