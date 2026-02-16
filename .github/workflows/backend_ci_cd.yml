@@ -45,11 +45,4 @@ jobs:
 
     - name: Deploy to Google Cloud Run
       run: |
-        gcloud run deploy ${{ env.SERVICE_NAME }} 
-          --image ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/finops-intelligence/backend:latest 
-          --set-secrets DATABASE_URL=DATABASE_URL:latest,GOOGLE_APPLICATION_CREDENTIALS=GOOGLE_APPLICATION_CREDENTIALS:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,GCP_PROJECT_ID=GCP_PROJECT_ID:latest 
-          --set-env-vars SQLALCHEMY_ECHO=True 
-          --platform managed 
-          --region ${{ env.GAR_LOCATION }} 
-          --allow-unauthenticated 
-          --project ${{ env.PROJECT_ID }}
+        gcloud run deploy ${{ env.SERVICE_NAME }} --image ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/finops-intelligence/backend:latest --set-secrets DATABASE_URL=DATABASE_URL:latest,GOOGLE_APPLICATION_CREDENTIALS=GOOGLE_APPLICATION_CREDENTIALS:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,GCP_PROJECT_ID=GCP_PROJECT_ID:latest --set-env-vars SQLALCHEMY_ECHO=True --platform managed --region ${{ env.GAR_LOCATION }} --allow-unauthenticated --project ${{ env.PROJECT_ID }}
