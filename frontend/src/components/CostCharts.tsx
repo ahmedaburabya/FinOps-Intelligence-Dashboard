@@ -21,7 +21,8 @@ const CostCharts: React.FC<CostChartsProps> = ({ costData, projectCostData }) =>
 
   // Process data for Cost by Project (Bar Chart)
   const projectCostMap = new Map<string, number>();
-  projectCostData.forEach((item) => { // Use projectCostData here
+  projectCostData.forEach((item) => {
+    // Use projectCostData here
     // Only include items with a defined project
     if (item.project) {
       const currentCost = projectCostMap.get(item.project) || 0;
@@ -44,9 +45,11 @@ const CostCharts: React.FC<CostChartsProps> = ({ costData, projectCostData }) =>
   const sortedDates = Array.from(dailyCostMap.keys()).sort((a, b) => {
     const [aMonth, aDay, aYear] = a.split('/').map(Number);
     const [bMonth, bDay, bYear] = b.split('/').map(Number);
-    return new Date(aYear, aMonth - 1, aDay).getTime() - new Date(bYear, bMonth - 1, bDay).getTime();
+    return (
+      new Date(aYear, aMonth - 1, aDay).getTime() - new Date(bYear, bMonth - 1, bDay).getTime()
+    );
   });
-  const dailyCosts = sortedDates.map(date => dailyCostMap.get(date) || 0);
+  const dailyCosts = sortedDates.map((date) => dailyCostMap.get(date) || 0);
 
   // Determine chart dimensions dynamically or set a fixed size
   const chartWidth = Math.max(300, serviceNames.length * 30); // Adjust width based on number of bars

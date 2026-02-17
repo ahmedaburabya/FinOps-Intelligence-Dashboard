@@ -75,7 +75,7 @@ def read_aggregated_cost_data(cost_data_id: int, db: Session = Depends(get_db)):
 
 @router.get(
     "/aggregated-cost",
-    response_model=schemas.PaginatedAggregatedCostData, # Updated response model
+    response_model=schemas.PaginatedAggregatedCostData,  # Updated response model
     summary="Retrieve paginated aggregated cost data records with filters (from PostgreSQL)",
     response_description="A paginated list of aggregated cost data records matching the filters, including total count.",
 )
@@ -101,17 +101,22 @@ def read_aggregated_cost_data_list(
     Retrieves a paginated list of aggregated cloud cost data records from PostgreSQL.
     Supports pagination and filtering by service, project, SKU, and time range.
     """
-    cost_data_list, total_count = crud.get_aggregated_cost_data( # Unpack data and count
-        db=db,
-        skip=skip,
-        limit=limit,
-        service=service,
-        project=project,
-        sku=sku,
-        start_date=start_date,
-        end_date=end_date,
+    cost_data_list, total_count = (
+        crud.get_aggregated_cost_data(  # Unpack data and count
+            db=db,
+            skip=skip,
+            limit=limit,
+            service=service,
+            project=project,
+            sku=sku,
+            start_date=start_date,
+            end_date=end_date,
+        )
     )
-    return {"items": cost_data_list, "total_count": total_count} # Return in new schema format
+    return {
+        "items": cost_data_list,
+        "total_count": total_count,
+    }  # Return in new schema format
 
 
 # --- FinOps Overview Endpoints (from PostgreSQL) ---
@@ -361,11 +366,15 @@ def get_distinct_skus_from_postgresql(db: Session = Depends(get_db)):
 @router.get(
     "/bigquery/datasets",
     summary="List all accessible BigQuery datasets",
-    response_model=schemas.PaginatedBigQueryDatasets, # Updated response model
+    response_model=schemas.PaginatedBigQueryDatasets,  # Updated response model
 )
 async def list_gcp_bigquery_datasets(
-    page_size: int = Query(100, ge=1, le=1000, description="Number of datasets per page"),
-    page_token: Optional[str] = Query(None, description="Token for the next page of results"),
+    page_size: int = Query(
+        100, ge=1, le=1000, description="Number of datasets per page"
+    ),
+    page_token: Optional[str] = Query(
+        None, description="Token for the next page of results"
+    ),
 ):
     """
     Retrieves a paginated list of BigQuery datasets that the configured service account

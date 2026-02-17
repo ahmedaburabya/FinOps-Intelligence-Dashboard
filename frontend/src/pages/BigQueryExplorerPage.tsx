@@ -49,7 +49,9 @@ const BigQueryExplorerPage: React.FC = () => {
 
   // Ingestion state
   const [ingestDatasetId, setIngestDatasetId] = useState<string>('finopsDS');
-  const [ingestTableId, setIngestTableId] = useState<string>('gcp_billing_export_resource_v1_01F185_0AA423_C9BA8A');
+  const [ingestTableId, setIngestTableId] = useState<string>(
+    'gcp_billing_export_resource_v1_01F185_0AA423_C9BA8A',
+  );
   const [ingestStartDate, setIngestStartDate] = useState<string>('');
   const [ingestEndDate, setIngestEndDate] = useState<string>('');
 

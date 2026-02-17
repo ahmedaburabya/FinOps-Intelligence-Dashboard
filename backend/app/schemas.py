@@ -8,7 +8,7 @@ SQLAlchemy models.
 
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional, List # Added List
+from typing import Optional, List  # Added List
 
 
 # --- Aggregated Cost Data Schemas ---
@@ -130,6 +130,7 @@ class PaginatedBigQueryDatasets(BaseModel):
     Includes the list of dataset IDs for the current page and a token
     for fetching the next page, if available.
     """
+
     datasets: List[str]
     next_page_token: Optional[str] = None
 
@@ -141,5 +142,6 @@ class PaginatedAggregatedCostData(BaseModel):
     Includes the list of AggregatedCostData items for the current page and the total count
     of all matching records.
     """
+
     items: List[AggregatedCostData]
     total_count: int

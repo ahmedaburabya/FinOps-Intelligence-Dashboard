@@ -29,7 +29,8 @@ export const finopsApi = {
     sku?: string;
     start_date?: string; // datetime-local format 'YYYY-MM-DDTHH:mm:ss' or 'YYYY-MM-DD'
     end_date?: string; // datetime-local format 'YYYY-MM-DDTHH:mm:ss' or 'YYYY-MM-DD'
-  }): Promise<PaginatedAggregatedCostData> => { // Updated return type
+  }): Promise<PaginatedAggregatedCostData> => {
+    // Updated return type
     const response = await axiosInstance.get<PaginatedAggregatedCostData>( // Updated generic type
       `${FINOPS_BASE_PATH}/aggregated-cost`,
       { params },

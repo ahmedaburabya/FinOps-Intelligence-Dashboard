@@ -50,7 +50,6 @@ const DashboardPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, _setItemsPerPage] = useState<number>(10); // Renamed to silence unused error
 
-
   const {
     overview,
     loading: overviewLoading,
@@ -173,8 +172,6 @@ const DashboardPage: React.FC = () => {
     }
     setSnackbarOpen(false);
   };
-
-
 
   if (
     overviewLoading &&
@@ -468,7 +465,9 @@ const DashboardPage: React.FC = () => {
           </Grid>
         )}
         {costData && costData.length > 0 && (
-          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-start', gap: 4, flexWrap: 'wrap' }}>
+          <Box
+            sx={{ mt: 4, display: 'flex', justifyContent: 'flex-start', gap: 4, flexWrap: 'wrap' }}
+          >
             <CostCharts costData={costData} projectCostData={projectChartCostData} />
           </Box>
         )}
@@ -565,8 +564,6 @@ const DashboardPage: React.FC = () => {
           </>
         )}
       </Box>
-
-
 
       {/* AI-Powered FinOps Insights Panel */}
       <AIInsightPanel
