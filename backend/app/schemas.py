@@ -8,7 +8,7 @@ SQLAlchemy models.
 
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List  # Added List
 
 
 # --- Aggregated Cost Data Schemas ---
@@ -121,3 +121,27 @@ class AIInsightRequest(BaseModel):
     sku: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+
+
+# --- Paginated BigQuery Datasets Schema ---
+class PaginatedBigQueryDatasets(BaseModel):
+    """
+    Pydantic schema for representing a paginated list of BigQuery dataset IDs.
+    Includes the list of dataset IDs for the current page and a token
+    for fetching the next page, if available.
+    """
+
+    datasets: List[str]
+    next_page_token: Optional[str] = None
+
+
+# --- Paginated Aggregated Cost Data Schema ---
+class PaginatedAggregatedCostData(BaseModel):
+    """
+    Pydantic schema for representing a paginated list of Aggregated Cost Data.
+    Includes the list of AggregatedCostData items for the current page and the total count
+    of all matching records.
+    """
+
+    items: List[AggregatedCostData]
+    total_count: int

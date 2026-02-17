@@ -57,3 +57,8 @@ export interface AIInsightRequest {
   start_date?: string; // ISO 8601 string
   end_date?: string; // ISO 8601 string
 }
+
+export interface PaginatedAggregatedCostData {
+  items: AggregatedCostData[];
+  total_count: number;
+}

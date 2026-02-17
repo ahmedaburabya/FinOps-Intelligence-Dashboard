@@ -110,16 +110,34 @@ class BigQueryService:
             )
             return False
 
-    def list_bigquery_datasets(self) -> List[str]:
+    def list_bigquery_datasets(
+        self, page_size: int = 100, page_token: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Lists all datasets in the project accessible by the service account.
+        Lists BigQuery datasets in the project with pagination.
+
+        Args:
+            page_size: The maximum number of datasets to return per page.
+            page_token: The `next_page_token` from a previous request, if any,
+                        to resume listing from that point.
+
+        Returns:
+            A dictionary containing 'datasets' (List[str]) and 'next_page_token' (Optional[str]).
         """
         try:
-            datasets = list(self.client.list_datasets())
-            logger.info(f"Found {len(datasets)} datasets.")
-            return [ds.dataset_id for ds in datasets]
+            iterator = self.client.list_datasets(
+                max_results=page_size, page_token=page_token
+            )
+            page = next(iterator.pages)  # Get the current page
+            datasets = [ds.dataset_id for ds in page]
+            next_page_token = iterator.next_page_token
+
+            logger.info(
+                f"Found {len(datasets)} datasets on this page. Next page token: {next_page_token}"
+            )
+            return {"datasets": datasets, "next_page_token": next_page_token}
         except Exception as e:
-            logger.error(f"Error listing BigQuery datasets: {e}")
+            logger.error(f"Error listing BigQuery datasets with pagination: {e}")
             raise
 
     def list_bigquery_tables(self, dataset_id: str) -> List[str]:

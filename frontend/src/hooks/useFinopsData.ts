@@ -6,12 +6,12 @@ import type { ApiError } from '../types/common';
 import { useQuery } from '@tanstack/react-query';
 
 // Custom hook for fetching FinOps Overview data
-export const useFinopsOverview = (project?: string) => {
+export const useFinopsOverview = () => {
   const [overview, setOverview] = useState<FinopsOverview | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  const fetchOverview = useCallback(async () => {
+  const fetchOverview = useCallback(async (project?: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -25,11 +25,7 @@ export const useFinopsOverview = (project?: string) => {
     } finally {
       setLoading(false);
     }
-  }, [project]);
-
-  useEffect(() => {
-    fetchOverview();
-  }, [fetchOverview]);
+  }, []);
 
   return { overview, loading, error, refetchOverview: fetchOverview };
 };
@@ -45,6 +41,7 @@ export const useAggregatedCostData = (params?: {
   end_date?: string;
 }) => {
   const [costData, setCostData] = useState<AggregatedCostData[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0); // New state for total count
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<ApiError | null>(null);
 
@@ -52,8 +49,9 @@ export const useAggregatedCostData = (params?: {
     setLoading(true);
     setError(null);
     try {
-      const data = await finopsApi.getAggregatedCostDataList(params);
-      setCostData(data);
+      const response = await finopsApi.getAggregatedCostDataList(params);
+      setCostData(response.items); // Extract items
+      setTotalCount(response.total_count); // Extract total_count
     } catch (err: any) {
       setError({
         detail: err.response?.data?.detail || 'Failed to fetch aggregated cost data.',
@@ -68,7 +66,7 @@ export const useAggregatedCostData = (params?: {
     fetchCostData();
   }, [params?.skip, params?.limit]);
 
-  return { costData, loading, error, refetchCostData: fetchCostData };
+  return { costData, totalCount, loading, error, refetchCostData: fetchCostData }; // Return totalCount
 };
 
 // Custom hook for fetching distinct services using React Query

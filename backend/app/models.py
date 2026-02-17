@@ -3,7 +3,7 @@ SQLAlchemy models for FinOps Intelligence Dashboard.
 These models define the structure of the data stored in the PostgreSQL database.
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -20,6 +20,13 @@ class AggregatedCostData(Base):
     """
 
     __tablename__ = "aggregated_cost_data"
+
+    # Composite indexes to optimize common dashboard queries (e.g., burn rate, MTD spend)
+    # that filter by a dimension (project/service) and a time range.
+    __table_args__ = (
+        Index("idx_cost_project_time", "project", "time_period"),
+        Index("idx_cost_service_time", "service", "time_period"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     service = Column(
@@ -88,6 +95,7 @@ class LLMInsight(Base):
     insight_type = Column(
         String,
         nullable=False,
+        index=True,
         comment="Type of insight (e.g., 'spend_summary', 'anomaly_detection', 'cost_optimization')",
     )
     insight_text = Column(
@@ -102,6 +110,7 @@ class LLMInsight(Base):
         Integer,
         ForeignKey("aggregated_cost_data.id"),
         nullable=True,
+        index=True,
         comment="Foreign key to AggregatedCostData if the insight is related to specific cost data",
     )
 
@@ -109,6 +118,7 @@ class LLMInsight(Base):
         DateTime,
         default=datetime.utcnow,
         nullable=False,
+        index=True,
         comment="Timestamp when the insight was generated",
     )
     sentiment = Column(

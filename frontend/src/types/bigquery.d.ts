@@ -7,3 +7,8 @@ export type BigQueryTableDataRow = { [key: string]: any };
 export interface BigQueryIngestResponse {
   message: string;
 }
+
+export interface PaginatedBigQueryDatasets {
+  datasets: string[];
+  next_page_token: string | null;
+}
