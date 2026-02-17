@@ -183,7 +183,7 @@ async def generate_ai_spend_summary(
     Data is fetched from PostgreSQL based on the provided query parameters.
     """
     # 1. Retrieve ALL relevant aggregated cost data from PostgreSQL based on filters (no skip/limit)
-    aggregated_data = crud.get_aggregated_cost_data(
+    aggregated_data_list, _ = crud.get_aggregated_cost_data(
         db=db,
         skip=0,  # Ensure no skip
         limit=None,  # Ensure all data is fetched (no limit)
@@ -194,7 +194,7 @@ async def generate_ai_spend_summary(
         end_date=end_date,
     )
 
-    if not aggregated_data:
+    if not aggregated_data_list:
         raise HTTPException(
             status_code=404,
             detail="No aggregated cost data found for the specified criteria to generate a summary.",
@@ -202,7 +202,7 @@ async def generate_ai_spend_summary(
 
     # 2. Call the LLM service to generate the summary
     summary_text = await llm_service.generate_spend_summary(
-        aggregated_data,
+        aggregated_data_list,
         project=project,  # Pass project filter to LLM service for context
         start_date=start_date,  # Pass start_date filter to LLM service for context
         end_date=end_date,  # Pass end_date filter to LLM service for context
@@ -262,7 +262,7 @@ async def get_ai_chat_insight(
     - **project, service, sku, start_date, end_date**: Optional filters to refine the data context for the AI.
     """
     # 1. Fetch relevant aggregated cost data based on filters
-    aggregated_data = crud.get_aggregated_cost_data(
+    aggregated_data_list, _ = crud.get_aggregated_cost_data(
         db=db,
         skip=0,
         limit=None,  # Fetch all relevant data for AI analysis
@@ -273,7 +273,7 @@ async def get_ai_chat_insight(
         end_date=request.end_date,
     )
 
-    if not aggregated_data and request.insight_type != "natural_query":
+    if not aggregated_data_list and request.insight_type != "natural_query":
         # For natural queries, the LLM might be able to answer generally even without specific data.
         # For other insight types, data is crucial.
         raise HTTPException(
@@ -286,7 +286,7 @@ async def get_ai_chat_insight(
         llm_response = await llm_service.get_ai_insight(
             insight_type=request.insight_type,
             query=request.query or "",  # Ensure query is not None
-            aggregated_data=aggregated_data,
+            aggregated_data=aggregated_data_list,
             project=request.project,
             start_date=request.start_date,
             end_date=request.end_date,

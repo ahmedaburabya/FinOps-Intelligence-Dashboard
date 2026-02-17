@@ -32,7 +32,9 @@ if not DATABASE_URL:
 # for communicating with the database.
 # `pool_pre_ping=True` ensures that connections in the pool are still alive.
 # `echo=SQLALCHEMY_ECHO` will log all SQL statements to stdout if enabled.
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, echo=SQLALCHEMY_ECHO)
+engine = create_engine(
+    DATABASE_URL, pool_pre_ping=True, echo=SQLALCHEMY_ECHO, pool_size=8, max_overflow=2
+)
 
 # --- Session Local (Session Factory) ---
 # `sessionmaker` creates a class that will act as a factory for `Session` objects.
