@@ -1,13 +1,6 @@
 // frontend/src/services/api/finopsApi.ts
 import axiosInstance from './axiosInstance';
-import type {
-  AggregatedCostData,
-  AggregatedCostDataCreate,
-  FinopsOverview,
-  LLMInsight,
-  LLMInsightCreate,
-} from '~/types/finops';
-import type { BigQueryIngestResponse } from '~/types/bigquery';
+import type { BigQueryIngestResponse, PaginatedBigQueryDatasets } from '~/types/bigquery';
 
 const FINOPS_BASE_PATH = '/finops'; // From backend main.py: prefix="/api/v1/finops"
 
@@ -36,8 +29,8 @@ export const finopsApi = {
     sku?: string;
     start_date?: string; // datetime-local format 'YYYY-MM-DDTHH:mm:ss' or 'YYYY-MM-DD'
     end_date?: string; // datetime-local format 'YYYY-MM-DDTHH:mm:ss' or 'YYYY-MM-DD'
-  }): Promise<AggregatedCostData[]> => {
-    const response = await axiosInstance.get<AggregatedCostData[]>(
+  }): Promise<PaginatedAggregatedCostData> => { // Updated return type
+    const response = await axiosInstance.get<PaginatedAggregatedCostData>( // Updated generic type
       `${FINOPS_BASE_PATH}/aggregated-cost`,
       { params },
     );
@@ -74,8 +67,14 @@ export const finopsApi = {
   },
 
   // BigQuery Exploration & Ingestion Endpoints
-  listBigQueryDatasets: async (): Promise<string[]> => {
-    const response = await axiosInstance.get<string[]>(`${FINOPS_BASE_PATH}/bigquery/datasets`);
+  listBigQueryDatasets: async (params?: {
+    page_size?: number;
+    page_token?: string | null;
+  }): Promise<PaginatedBigQueryDatasets> => {
+    const response = await axiosInstance.get<PaginatedBigQueryDatasets>(
+      `${FINOPS_BASE_PATH}/bigquery/datasets`,
+      { params },
+    );
     return response.data;
   },
 

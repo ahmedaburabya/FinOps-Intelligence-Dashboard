@@ -27,15 +27,16 @@ def get_aggregated_cost_data_by_id(db: Session, cost_data_id: int):
 def get_aggregated_cost_data(
     db: Session,
     skip: int = 0,
-    limit: Optional[int] = 100,  # Changed to Optional[int] for dynamic limiting
+    limit: Optional[int] = 100,
     service: Optional[str] = None,
     project: Optional[str] = None,
     sku: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-):
+) -> tuple[List[models.AggregatedCostData], int]:  # Updated return type
     """
-    Retrieves multiple aggregated cost data records with optional filtering.
+    Retrieves multiple aggregated cost data records with optional filtering,
+    including total count for pagination.
     """
     query = db.query(models.AggregatedCostData)
     if service:
@@ -49,11 +50,13 @@ def get_aggregated_cost_data(
     if end_date:
         query = query.filter(models.AggregatedCostData.time_period <= end_date)
 
+    total_count = query.count()  # Get total count before applying skip/limit
+
     query = query.offset(skip)
-    if limit is not None:  # Conditionally apply limit
+    if limit is not None:
         query = query.limit(limit)
 
-    return query.all()  # Always call .all() at the end
+    return query.all(), total_count  # Return both data and count
 
 
 def create_aggregated_cost_data(

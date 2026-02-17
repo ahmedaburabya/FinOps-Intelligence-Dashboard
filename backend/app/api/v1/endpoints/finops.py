@@ -10,6 +10,7 @@ from typing import List, Optional, Any, Dict
 from datetime import datetime, date
 import asyncio  # Import asyncio for running blocking calls in a thread pool
 import logging  # Import logging
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)  # Initialize logger
 
@@ -74,9 +75,9 @@ def read_aggregated_cost_data(cost_data_id: int, db: Session = Depends(get_db)):
 
 @router.get(
     "/aggregated-cost",
-    response_model=List[schemas.AggregatedCostData],
-    summary="Retrieve multiple aggregated cost data records with filters (from PostgreSQL)",
-    response_description="A list of aggregated cost data records matching the filters.",
+    response_model=schemas.PaginatedAggregatedCostData, # Updated response model
+    summary="Retrieve paginated aggregated cost data records with filters (from PostgreSQL)",
+    response_description="A paginated list of aggregated cost data records matching the filters, including total count.",
 )
 def read_aggregated_cost_data_list(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -97,10 +98,10 @@ def read_aggregated_cost_data_list(
     db: Session = Depends(get_db),
 ):
     """
-    Retrieves a list of aggregated cloud cost data records from PostgreSQL.
+    Retrieves a paginated list of aggregated cloud cost data records from PostgreSQL.
     Supports pagination and filtering by service, project, SKU, and time range.
     """
-    cost_data_list = crud.get_aggregated_cost_data(
+    cost_data_list, total_count = crud.get_aggregated_cost_data( # Unpack data and count
         db=db,
         skip=skip,
         limit=limit,
@@ -110,7 +111,7 @@ def read_aggregated_cost_data_list(
         start_date=start_date,
         end_date=end_date,
     )
-    return cost_data_list
+    return {"items": cost_data_list, "total_count": total_count} # Return in new schema format
 
 
 # --- FinOps Overview Endpoints (from PostgreSQL) ---
@@ -360,19 +361,22 @@ def get_distinct_skus_from_postgresql(db: Session = Depends(get_db)):
 @router.get(
     "/bigquery/datasets",
     summary="List all accessible BigQuery datasets",
-    response_model=List[str],
+    response_model=schemas.PaginatedBigQueryDatasets, # Updated response model
 )
-async def list_gcp_bigquery_datasets():  # Changed to async
+async def list_gcp_bigquery_datasets(
+    page_size: int = Query(100, ge=1, le=1000, description="Number of datasets per page"),
+    page_token: Optional[str] = Query(None, description="Token for the next page of results"),
+):
     """
-    Retrieves a list of all BigQuery datasets that the configured service account
+    Retrieves a paginated list of BigQuery datasets that the configured service account
     has access to in the GCP project.
     """
     try:
-        loop = asyncio.get_running_loop()
-        datasets = await loop.run_in_executor(
-            None, bigquery_service.list_bigquery_datasets
+        # Pass page_size and page_token to the service method
+        paginated_response = await run_in_threadpool(
+            bigquery_service.list_bigquery_datasets, page_size, page_token
         )
-        return datasets
+        return paginated_response
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to list BigQuery datasets: {e}"
@@ -391,9 +395,8 @@ async def list_gcp_bigquery_tables(dataset_id: str):  # Changed to async
     - **dataset_id**: The ID of the BigQuery dataset.
     """
     try:
-        loop = asyncio.get_running_loop()
-        tables = await loop.run_in_executor(
-            None, bigquery_service.list_bigquery_tables, dataset_id
+        tables = await run_in_threadpool(
+            bigquery_service.list_bigquery_tables, dataset_id
         )
         return tables
     except Exception as e:
@@ -422,9 +425,8 @@ async def read_bigquery_table_data(
     - **limit**: Maximum number of rows to return.
     """
     try:
-        loop = asyncio.get_running_loop()
-        data = await loop.run_in_executor(
-            None, bigquery_service.read_bigquery_table_data, dataset_id, table_id, limit
+        data = await run_in_threadpool(
+            bigquery_service.read_bigquery_table_data, dataset_id, table_id, limit
         )
         return data
     except Exception as e:
@@ -458,9 +460,7 @@ async def ingest_bigquery_billing_data(  # Changed to async
     the PostgreSQL `aggregated_cost_data` table.
     """
     try:
-        loop = asyncio.get_running_loop()
-        billing_data = await loop.run_in_executor(
-            None,
+        billing_data = await run_in_threadpool(
             bigquery_service.get_billing_data_for_aggregation,
             dataset_id,
             table_id,
@@ -470,9 +470,9 @@ async def ingest_bigquery_billing_data(  # Changed to async
 
         ingested_count = 0
         if billing_data:
-            # CRUD operations are blocking, so also run in executor
-            await loop.run_in_executor(
-                None, crud.bulk_create_aggregated_cost_data, db, billing_data
+            # CRUD operations are blocking, so also run in threadpool
+            await run_in_threadpool(
+                crud.bulk_create_aggregated_cost_data, db, billing_data
             )
             ingested_count = len(billing_data)
 
