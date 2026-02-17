@@ -4,6 +4,7 @@ This module provides functions to interact with the database, abstracting
 away the direct SQLAlchemy session management from the API endpoints.
 """
 
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta  # timedelta added here
@@ -63,12 +64,29 @@ def create_aggregated_cost_data(
     db: Session, cost_data: schemas.AggregatedCostDataCreate
 ):
     """
-    Creates a new aggregated cost data record in the database.
+    Creates a new aggregated cost data record or updates an existing one if a conflict occurs.
+    This implements an "upsert" strategy based on the unique constraint (service, project, sku, time_period).
     """
-    db_cost_data = models.AggregatedCostData(**cost_data.model_dump())
-    db.add(db_cost_data)
+    # Prepare the insert statement with on_conflict_do_update clause
+    insert_stmt = insert(models.AggregatedCostData).values(**cost_data.model_dump())
+
+    on_conflict_stmt = insert_stmt.on_conflict_do_update(
+        index_elements=["service", "project", "sku", "time_period"],
+        set_={
+            "cost": insert_stmt.excluded.cost,
+            "currency": insert_stmt.excluded.currency,
+            "usage_amount": insert_stmt.excluded.usage_amount,
+            "usage_unit": insert_stmt.excluded.usage_unit,
+            "updated_at": datetime.utcnow(),  # Explicitly update updated_at
+        },
+    ).returning(models.AggregatedCostData) # Return the updated/inserted object
+
+    # Execute the upsert statement
+    result = db.execute(on_conflict_stmt)
+    db_cost_data = result.scalars().first() # Get the resulting object
+    
     db.commit()
-    db.refresh(db_cost_data)
+    db.refresh(db_cost_data) # Refresh to ensure all fields are loaded, including id
     return db_cost_data
 
 
@@ -76,17 +94,41 @@ def bulk_create_aggregated_cost_data(
     db: Session, cost_data_list: List[schemas.AggregatedCostDataCreate]
 ):
     """
-    Performs a bulk insertion of multiple aggregated cost data records into the database.
-    This is more efficient than inserting records one by one.
+    Performs a bulk insertion or update of multiple aggregated cost data records into the database.
+    This uses an "upsert" strategy for efficiency and to handle duplicate entries based on
+    the unique constraint (service, project, sku, time_period).
     """
-    db_objects = [
-        models.AggregatedCostData(**item.model_dump()) for item in cost_data_list
-    ]
-    db.add_all(db_objects)
+    if not cost_data_list:
+        return []
+
+    # Prepare a list of dictionaries from the Pydantic models
+    values_to_insert = [item.model_dump() for item in cost_data_list]
+
+    # Create an insert statement with on_conflict_do_update
+    insert_stmt = insert(models.AggregatedCostData).values(values_to_insert)
+
+    on_conflict_stmt = insert_stmt.on_conflict_do_update(
+        index_elements=["service", "project", "sku", "time_period"],
+        set_={
+            "cost": insert_stmt.excluded.cost,
+            "currency": insert_stmt.excluded.currency,
+            "usage_amount": insert_stmt.excluded.usage_amount,
+            "usage_unit": insert_stmt.excluded.usage_unit,
+            "updated_at": datetime.utcnow(),  # Explicitly update updated_at
+        },
+    ).returning(models.AggregatedCostData)
+
+    # Execute the upsert statement
+    result = db.execute(on_conflict_stmt)
     db.commit()
-    # Refreshing all objects after bulk insert might be resource-intensive for very large lists.
-    # For simplicity, we'll return the list of created objects without individual refreshes.
-    return db_objects
+
+    # Fetch the results after commit. For bulk operations, scalars().all() is often used.
+    # Note: refresh might not be directly applicable to all items in a bulk upsert
+    # without re-querying or explicitly handling the returned values.
+    # We are returning the objects that were either inserted or updated.
+    return result.scalars().all()
+
+
 
 
 # --- CRUD for LLMInsight ---
