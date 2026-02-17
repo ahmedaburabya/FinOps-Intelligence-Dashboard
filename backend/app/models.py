@@ -3,7 +3,16 @@ SQLAlchemy models for FinOps Intelligence Dashboard.
 These models define the structure of the data stored in the PostgreSQL database.
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Index, UniqueConstraint
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    ForeignKey,
+    Index,
+    UniqueConstraint,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime

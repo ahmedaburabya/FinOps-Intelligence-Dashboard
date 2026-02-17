@@ -79,14 +79,16 @@ def create_aggregated_cost_data(
             "usage_unit": insert_stmt.excluded.usage_unit,
             "updated_at": datetime.utcnow(),  # Explicitly update updated_at
         },
-    ).returning(models.AggregatedCostData) # Return the updated/inserted object
+    ).returning(
+        models.AggregatedCostData
+    )  # Return the updated/inserted object
 
     # Execute the upsert statement
     result = db.execute(on_conflict_stmt)
-    db_cost_data = result.scalars().first() # Get the resulting object
-    
+    db_cost_data = result.scalars().first()  # Get the resulting object
+
     db.commit()
-    db.refresh(db_cost_data) # Refresh to ensure all fields are loaded, including id
+    db.refresh(db_cost_data)  # Refresh to ensure all fields are loaded, including id
     return db_cost_data
 
 
@@ -127,8 +129,6 @@ def bulk_create_aggregated_cost_data(
     # without re-querying or explicitly handling the returned values.
     # We are returning the objects that were either inserted or updated.
     return result.scalars().all()
-
-
 
 
 # --- CRUD for LLMInsight ---
