@@ -38,53 +38,16 @@ LLM_MODEL_NAME="gemini-2.5-flash" # Optional: Specify Gemini model
 VITE_API_BASE_URL="http://localhost:8000/api/v1" # Adjust if your backend port differs
 ```
 
-#### Running with Docker Compose (Recommended for Local Development)
-
-Docker Compose simplifies the setup by orchestrating the PostgreSQL database, FastAPI backend, and React frontend.
-
-1.  **Place Service Account Key:** Ensure your `service-account-file.json` is located in the `backend/` directory.
-2.  **Update Docker Compose:** The `docker-compose.yml` file currently has the backend service commented out. To run the full stack, you need to **uncomment the `backend` service** block in `docker-compose.yml`.
-    *   **Port Consistency:** Note that the `backend/Dockerfile` exposes port `8080`, while the commented-out `docker-compose.yml` mapped `8000`. Ensure these are consistent. For example, if you want the backend to run on `8000` change `backend/Dockerfile` `EXPOSE` and `CMD` to `8000` or change the `docker-compose.yml` port mapping to `8080:8080`.
-    *   **Frontend Port:** The frontend `Dockerfile` exposes `8080`, but `docker-compose.yml` maps `5173:80`. For local development, consider changing the frontend `Dockerfile`'s `EXPOSE` to `80` to align with the Nginx default if you intend to map `5173` to the Nginx container's port `80`.
-
-    After uncommenting and ensuring port consistency:
-    ```yaml
-      backend:
-        build:
-          context: ./backend
-          dockerfile: Dockerfile
-        container_name: finops_backend
-        volumes:
-          - ./backend/app:/app/app
-          - ./backend/.env:/app/.env
-          - ./backend/service-account-file.json:/app/service-account-file.json
-        ports:
-          - "8000:8000" # Or 8080:8080 if using 8080 in Dockerfile
-        environment:
-          DATABASE_URL: "postgresql+psycopg2://user:password@db:5432/finops_db"
-          GOOGLE_APPLICATION_CREDENTIALS: "/app/service-account-file.json"
-          GOOGLE_API_KEY: "YOUR_GOOGLE_GENERATIVE_AI_API_KEY" # Replace with your actual key
-          GCP_PROJECT_ID: "YOUR_GCP_PROJECT_ID" # Replace with your actual project ID
-        depends_on:
-          db:
-            condition: service_healthy
-        networks:
-          - finops-network
-        command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload # Or 8080
-    ```
-3.  **Build and Run:** Navigate to the project root directory (`FinOpsIntelligenceDashboard/Backend/`) and run:
-    ```bash
-    docker-compose up --build
-    ```
-    This command will build the Docker images (if they don't exist or have changed) and start all services.
-
-4.  **Access the Application:**
-    *   **Frontend:** Open your web browser and go to `http://localhost:5173`.
-    *   **Backend API Docs:** If the backend is running, you can access its API documentation at `http://localhost:8000/docs` (or `http://localhost:8080/docs` depending on your configuration).
-
 #### Running Services Independently
 
 You can also run the backend and frontend services separately without Docker Compose.
+
+##### Database (PostgresDB)
+
+1.  **Run database using docker compose file:**
+    ```bash
+    docker-compose up -d
+    ```
 
 ##### Backend (FastAPI)
 
@@ -138,11 +101,12 @@ You can also run the backend and frontend services separately without Docker Com
 The FinOps Intelligence Dashboard follows a modern, decoupled architecture consisting of a React frontend, a FastAPI backend, and a PostgreSQL database, heavily leveraging Google Cloud Platform services.
 
 *   **Frontend:** Developed with **React 19**, **Vite** for fast development, **MUI (Material-UI)** for the component library, and **`@tanstack/react-query`** for efficient data fetching and state management. It communicates with the FastAPI backend via RESTful APIs.
-*   **Backend:** Built with **FastAPI** (Python 3.11), providing a high-performance and asynchronous API. It manages data persistence with **SQLAlchemy** (ORM) and **PostgreSQL**. Key functionalities include:
+*   **Backend:** Built with **FastAPI** (Python 3.11), providing a high-performance. It manages data persistence with **SQLAlchemy** (ORM) and **PostgreSQL**. Key functionalities include:
     *   **Data Aggregation:** Connects to **Google BigQuery** to ingest and aggregate cloud billing data.
     *   **AI-Driven Insights:** Integrates with **Google Generative AI (Gemini Model)** to generate spend summaries, anomaly detection, predictive forecasting, and cost optimization recommendations.
 *   **Database:** **PostgreSQL** serves as the primary database for storing aggregated FinOps data and application-specific information.
 *   **Cloud Platform:** Primarily deployed on **Google Cloud Run**, providing a fully managed, serverless platform for containerized applications.
+*   **Secret Manager:** Secrets are handled using **Google Cloud secret manager**.
 
 #### Software Development Lifecycle (SDLC)
 
@@ -167,7 +131,7 @@ The project employs a robust CI/CD pipeline managed by GitHub Actions to ensure 
     *   Pushes the Docker image to **Google Artifact Registry**.
     *   Deploys the containerized frontend to **Google Cloud Run**.
 
-This setup ensures that any changes merged into the `main` branch are automatically built, tested, and deployed to production, providing a streamlined and reliable release process. The `develop` branch serves as a staging ground for features before they are promoted to `main`.
+This setup ensures that any changes merged into the `main` branch are automatically built, tested, and deployed.
 
 ### AI Disclosure
 
@@ -195,7 +159,6 @@ To evolve the FinOps Intelligence Dashboard to handle massive data volumes or st
 #### 1. Scalability for Massive Data Volumes
 
 *   **Database Scaling (PostgreSQL):**
-    *   **Managed Service Migration:** Transition from potentially self-managed PostgreSQL to a fully managed service like **Google Cloud SQL** or **Cloud Spanner (for extreme scale)** for automated scaling, backups, and high availability.
     *   **Read Replicas:** Implement read replicas for Cloud SQL to distribute read loads, improving frontend responsiveness for data-intensive queries.
     *   **Database Sharding/Partitioning:** For exceptionally high write and read throughput requirements on the operational database, explore sharding or advanced table partitioning strategies.
 *   **BigQuery Optimization:**
@@ -204,31 +167,4 @@ To evolve the FinOps Intelligence Dashboard to handle massive data volumes or st
     *   **Streaming Inserts:** For real-time billing data ingestion, integrate BigQuery streaming inserts to provide near real-time insights.
 *   **Caching Layer:**
     *   **Distributed Cache:** Introduce a distributed caching solution (e.g., **Redis** via **Google Cloud Memorystore**) for frequently accessed but slow-changing data, such as distinct service/project/SKU lists, or popular AI insight responses.
-    *   **API Gateway Caching:** If an API Gateway (e.g., Google Cloud Endpoints or Apigee) is introduced, implement caching at that layer for common, read-heavy API calls.
-*   **Asynchronous Processing & Message Queues:**
-    *   **Decoupling Heavy Workloads:** Utilize **Google Cloud Pub/Sub** to decouple heavy background tasks, such as large BigQuery data ingestion processes or complex, long-running AI report generation, from the main API request flow.
-    *   **Event-Driven Architecture:** Evolve towards an event-driven architecture where data updates or new insights trigger downstream processing via Pub/Sub, ensuring responsiveness and resilience.
-*   **Batch Processing:** For very large-scale data transformations, aggregations, or machine learning model training that are not time-sensitive, consider dedicated batch processing solutions like **Google Cloud Dataflow** or **Dataproc**.
-
-#### 2. Adherence to Stricter Compliance Requirements
-
-*   **Data Encryption:**
-    *   **Customer-Managed Encryption Keys (CMEK):** For highly sensitive data, enforce CMEK for BigQuery datasets, Cloud SQL instances, and Cloud Storage buckets to provide explicit control over encryption keys.
-    *   **Data in Transit:** Ensure all communication between services and external clients strictly adheres to TLS 1.2+ encryption (already largely handled by Cloud Run and Nginx defaults).
-*   **Access Control & Authentication:**
-    *   **Granular IAM Policies:** Implement fine-grained Identity and Access Management (IAM) policies across all Google Cloud resources, following the principle of least privilege.
-    *   **Role-Based Access Control (RBAC):** Enhance the application's internal RBAC to restrict user access to specific FinOps data, projects, or AI insight types based on their assigned roles.
-    *   **Centralized Identity Provider Integration:** Integrate with a robust identity provider (e.g., Google Identity Platform, Okta, Auth0) for centralized user authentication and authorization, supporting features like SSO and MFA.
-*   **Auditing & Logging:**
-    *   **Comprehensive Audit Trails:** Configure **Google Cloud Audit Logs** (Admin Activity, Data Access, System Event) for BigQuery, Cloud SQL, and Cloud Run to capture all relevant activities.
-    *   **Application-Level Logging:** Implement detailed application-level logging for all user interactions, data access, and AI calls, storing logs securely in **Google Cloud Logging** and potentially exporting to BigQuery for analysis.
-    *   **Security Information and Event Management (SIEM):** Integrate with a SIEM solution (e.g., Splunk, Chronicle Security Operations) for centralized log analysis, threat detection, and incident response.
-*   **Data Residency & Sovereignty:**
-    *   **Geographic Deployment:** Ensure all Google Cloud resources (Cloud Run, BigQuery, Cloud SQL) are deployed in specific geographic regions to meet data residency requirements.
-    *   **Data Minimization:** Implement strict policies and technical controls to collect, process, and store only the data absolutely necessary for the application's functionality.
-*   **Data Loss Prevention (DLP):**
-    *   **Sensitive Data Scanning:** Utilize **Google Cloud Data Loss Prevention (DLP)** service to automatically discover, classify, and protect sensitive data (e.g., PII, financial information) across BigQuery and other data stores.
-    *   **Redaction/Tokenization:** Implement data redaction or tokenization for sensitive fields before storage or processing to minimize exposure.
-*   **Regular Compliance Audits & Certifications:**
-    *   **Automated Security Scans:** Implement continuous security scanning and vulnerability assessments using tools like **Google Cloud Security Command Center**.
-    *   **Third-Party Audits:** Engage with third-party auditors to conduct regular compliance assessments (e.g., SOC 2, ISO 27001) to validate adherence to regulatory standards.
+*   **Batch Processing:** For very large-scale data transformations, aggregations, or machine learning model training that are not time-sensitive, consider dedicated batch processing solutions.
