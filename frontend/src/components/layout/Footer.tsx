@@ -28,7 +28,7 @@ function Footer() {
           theme.palette.mode === 'light' ? theme.palette.grey[200] : theme.palette.grey[800],
       }}
     >
-      <Container maxWidth="sm">
+      <Container maxWidth="sm" sx={{ textAlign: 'center' }}>
         <Typography variant="body1">FinOps Intelligence Dashboard</Typography>
         <Copyright />
       </Container>

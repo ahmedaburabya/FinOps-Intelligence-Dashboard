@@ -46,8 +46,8 @@ const BigQueryExplorerPage: React.FC = () => {
   >('success');
 
   // Ingestion state
-  const [ingestDatasetId, setIngestDatasetId] = useState<string>('');
-  const [ingestTableId, setIngestTableId] = useState<string>('');
+  const [ingestDatasetId, setIngestDatasetId] = useState<string>('finopsDS');
+  const [ingestTableId, setIngestTableId] = useState<string>('gcp_billing_export_resource_v1_01F185_0AA423_C9BA8A');
   const [ingestStartDate, setIngestStartDate] = useState<string>('');
   const [ingestEndDate, setIngestEndDate] = useState<string>('');
 
@@ -118,12 +118,11 @@ const BigQueryExplorerPage: React.FC = () => {
 
   const handleDatasetChange = (event: any) => {
     setSelectedDataset(event.target.value);
-    setIngestDatasetId(event.target.value); // Sync for ingestion form
+    setSelectedTable(''); // Clear selected table when dataset changes
   };
 
   const handleTableChange = (event: any) => {
     setSelectedTable(event.target.value);
-    setIngestTableId(event.target.value); // Sync for ingestion form
   };
 
   const handleIngestData = async () => {
@@ -304,16 +303,16 @@ const BigQueryExplorerPage: React.FC = () => {
             label="BigQuery Dataset ID"
             variant="outlined"
             fullWidth
-            value={ingestDatasetId}
-            onChange={(e) => setIngestDatasetId(e.target.value)}
+            value="finopsDS"
+            InputProps={{ readOnly: true }}
             required
           />
           <TextField
             label="BigQuery Table ID"
             variant="outlined"
             fullWidth
-            value={ingestTableId}
-            onChange={(e) => setIngestTableId(e.target.value)}
+            value="gcp_billing_export_resource_v1_01F185_0AA423_C9BA8A"
+            InputProps={{ readOnly: true }}
             required
           />
           <TextField

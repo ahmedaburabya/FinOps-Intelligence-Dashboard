@@ -37,6 +37,7 @@ import SnackbarAlert from '~/components/common/SnackbarAlert';
 import { AxiosError } from 'axios';
 import type { AggregatedCostData, FinopsOverview, LLMInsight } from '~/types/finops'; // Using import type
 import AIInsightPanel from '~/components/AIInsightPanel'; // Import the new AIInsightPanel component
+import CostCharts from '~/components/CostCharts'; // Import the new CostCharts component
 
 const DashboardPage: React.FC = () => {
   const [projectFilter, setProjectFilter] = useState<string>('');
@@ -67,6 +68,21 @@ const DashboardPage: React.FC = () => {
     service: serviceFilter || undefined,
     project: projectFilter || undefined,
     sku: skuFilter || undefined,
+    start_date: startDateFilter ? new Date(startDateFilter).toISOString() : undefined,
+    end_date: endDateFilter ? new Date(endDateFilter).toISOString() : undefined,
+  });
+
+  // New hook for "Cost by Project" chart (only filtered by project and date)
+  const {
+    costData: projectChartCostData,
+    loading: projectChartCostDataLoading,
+    error: projectChartCostDataError,
+    refetchCostData: refetchProjectChartCostData,
+  } = useAggregatedCostData({
+    // No skip/limit for chart data, fetch all relevant data
+    service: undefined, // Ignore service filter
+    sku: undefined, // Ignore SKU filter
+    project: projectFilter || undefined, // Only apply project filter
     start_date: startDateFilter ? new Date(startDateFilter).toISOString() : undefined,
     end_date: endDateFilter ? new Date(endDateFilter).toISOString() : undefined,
   });
@@ -102,6 +118,7 @@ const DashboardPage: React.FC = () => {
     setCurrentPage(1); // Reset to first page on new filter
     refetchCostData();
     refetchOverview();
+    refetchProjectChartCostData(); // Refetch project-specific chart data
   };
 
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
@@ -168,7 +185,8 @@ const DashboardPage: React.FC = () => {
     costDataLoading &&
     distinctServicesLoading &&
     distinctProjectsLoading &&
-    distinctSkusLoading
+    distinctSkusLoading &&
+    projectChartCostDataLoading
   ) {
     // Added distinctProjectsLoading and distinctSkusLoading
     return <LoadingSpinner message="Loading FinOps Dashboard..." />;
@@ -192,7 +210,8 @@ const DashboardPage: React.FC = () => {
         llmSummaryError ||
         distinctServicesError ||
         distinctProjectsError ||
-        distinctSkusError) && ( // Added distinctProjectsError and distinctSkusError
+        distinctSkusError ||
+        projectChartCostDataError) && ( // Added projectChartCostDataError
         <SnackbarAlert
           open={true} // Always open if there's an error
           message={
@@ -202,6 +221,7 @@ const DashboardPage: React.FC = () => {
             distinctServicesError?.message || // Display distinctServicesError message
             distinctProjectsError?.message || // Display distinctProjectsError message
             distinctSkusError?.message || // Display distinctSkusError message
+            projectChartCostDataError?.message || // Display projectChartCostDataError message
             'An unknown error occurred.'
           }
           severity="error"
@@ -212,82 +232,11 @@ const DashboardPage: React.FC = () => {
             distinctServicesError ? (distinctServicesError.message = null) : null; // Clear distinctServicesError
             distinctProjectsError ? (distinctProjectsError.message = null) : null; // Clear distinctProjectsError
             distinctSkusError ? (distinctSkusError.message = null) : null; // Clear distinctSkusError
+            projectChartCostDataError ? (projectChartCostDataError.message = null) : null; // Clear projectChartCostDataError
           }}
           autoHideDuration={undefined} // Changed from null to undefined
         />
       )}
-
-      {/* FinOps Overview Cards */}
-      <Box sx={{ my: 4 }}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          Financial Overview
-        </Typography>
-        {overviewLoading ? (
-          <CircularProgress />
-        ) : (
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={3} component="div">
-              <Card raised>
-                <CardContent>
-                  <Typography color="text.secondary" gutterBottom>
-                    Month-to-Date Spend
-                  </Typography>
-                  <Typography variant="h5">
-                    {overview?.mtd_spend !== undefined
-                      ? `$${overview.mtd_spend.toFixed(2)}`
-                      : 'N/A'}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3} component="div">
-              <Card raised>
-                <CardContent>
-                  <Typography color="text.secondary" gutterBottom>
-                    Estimated Monthly Burn Rate
-                  </Typography>
-                  <Typography variant="h5">
-                    {overview?.burn_rate_estimated_monthly !== undefined
-                      ? `$${overview.burn_rate_estimated_monthly.toFixed(2)}`
-                      : 'N/A'}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            {/* New card for Daily Burn Rate MTD */}
-            <Grid item xs={12} sm={6} md={3} component="div">
-              <Card raised>
-                <CardContent>
-                  <Typography color="text.secondary" gutterBottom>
-                    Daily Burn Rate (average)
-                  </Typography>
-                  <Typography variant="h5">
-                    {overview?.daily_burn_rate_mtd !== undefined
-                      ? `$${overview.daily_burn_rate_mtd.toFixed(2)}`
-                      : 'N/A'}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            {/* New card for Projected Month-End Spend */}
-            <Grid item xs={12} sm={6} md={3} component="div">
-              <Card raised>
-                <CardContent>
-                  <Typography color="text.secondary" gutterBottom>
-                    Projected Month-End Spend
-                  </Typography>
-                  <Typography variant="h5">
-                    {overview?.projected_month_end_spend !== undefined
-                      ? `$${overview.projected_month_end_spend.toFixed(2)}`
-                      : 'N/A'}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            {/* Add more overview cards here if needed */}
-          </Grid>
-        )}
-      </Box>
 
       {/* Filters for Aggregated Cost Data */}
       <Box sx={{ my: 4, p: 3, border: '1px solid #e0e0e0', borderRadius: 2 }}>
@@ -432,6 +381,83 @@ const DashboardPage: React.FC = () => {
         </Grid>
       </Box>
 
+      {/* FinOps Overview Cards */}
+      <Box sx={{ my: 4 }}>
+        <Typography variant="h5" component="h2" gutterBottom>
+          Financial Overview
+        </Typography>
+        {overviewLoading ? (
+          <CircularProgress />
+        ) : (
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={3} component="div">
+              <Card raised>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom>
+                    Month-to-Date Spend
+                  </Typography>
+                  <Typography variant="h5">
+                    {overview?.mtd_spend !== undefined
+                      ? `$${overview.mtd_spend.toFixed(2)}`
+                      : 'N/A'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3} component="div">
+              <Card raised>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom>
+                    Estimated Monthly Burn Rate
+                  </Typography>
+                  <Typography variant="h5">
+                    {overview?.burn_rate_estimated_monthly !== undefined
+                      ? `$${overview.burn_rate_estimated_monthly.toFixed(2)}`
+                      : 'N/A'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            {/* New card for Daily Burn Rate MTD */}
+            <Grid item xs={12} sm={6} md={3} component="div">
+              <Card raised>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom>
+                    Daily Burn Rate (average)
+                  </Typography>
+                  <Typography variant="h5">
+                    {overview?.daily_burn_rate_mtd !== undefined
+                      ? `$${overview.daily_burn_rate_mtd.toFixed(2)}`
+                      : 'N/A'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            {/* New card for Projected Month-End Spend */}
+            <Grid item xs={12} sm={6} md={3} component="div">
+              <Card raised>
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom>
+                    Projected Month-End Spend
+                  </Typography>
+                  <Typography variant="h5">
+                    {overview?.projected_month_end_spend !== undefined
+                      ? `$${overview.projected_month_end_spend.toFixed(2)}`
+                      : 'N/A'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            {/* Add more overview cards here if needed */}
+          </Grid>
+        )}
+        {costData && costData.length > 0 && (
+          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-start', gap: 4, flexWrap: 'wrap' }}>
+            <CostCharts costData={costData} projectCostData={projectChartCostData} />
+          </Box>
+        )}
+      </Box>
+
       {/* Aggregated Cost Data Table */}
       <Box sx={{ my: 4 }}>
         <Typography variant="h5" component="h2" gutterBottom>
@@ -493,35 +519,7 @@ const DashboardPage: React.FC = () => {
         )}
       </Box>
 
-      {/* LLM Insight Panel */}
-      <Box sx={{ my: 4, p: 3, border: '1px solid #e0e0e0', borderRadius: 2 }}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          AI-Driven Insights
-        </Typography>
-        <Button
-          variant="contained"
-          onClick={generateSummary}
-          disabled={llmSummaryLoading}
-          sx={{ mb: 2 }}
-        >
-          {llmSummaryLoading ? <CircularProgress size={24} /> : 'Generate Spend Summary'}
-        </Button>
-        {llmInsight && (
-          <Card variant="outlined" sx={{ mt: 2, backgroundColor: '#f5f5f5' }}>
-            <CardContent>
-              <Typography variant="h6" component="h3" gutterBottom>
-                AI Spend Summary ({llmInsight.insight_type})
-              </Typography>
-              <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
-                {llmInsight.insight_text}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                Generated on: {new Date(llmInsight.timestamp).toLocaleString()}
-              </Typography>
-            </CardContent>
-          </Card>
-        )}
-      </Box>
+
 
       {/* AI-Powered FinOps Insights Panel */}
       <AIInsightPanel
