@@ -27,52 +27,6 @@ services:
     networks:
       - finops-network
 
-  # --- FastAPI Backend Service ---
-  backend:
-    build:
-      context: ./backend # Build from the backend directory
-      dockerfile: Dockerfile # Specify the Dockerfile to use within backend context
-    container_name: finops_backend
-    # Mount the current directory into the container.
-    # This allows for live code changes during development without rebuilding the image.
-    volumes:
-      - ./backend/app:/app/app # Mount the app source code
-      - ./backend/.env:/app/.env # Mount the .env file for environment variables
-      - ./backend/service-account-file.json:/app/service-account-file.json # Mount the service account file
-    ports:
-      - "8000:8000" # Map host port 8000 to container port 8000
-    environment:
-      DATABASE_URL: "postgresql+psycopg2://user:password@db:5432/finops_db"
-      GOOGLE_APPLICATION_CREDENTIALS: "/app/service-account-file.json"
-      # GOOGLE_API_KEY is ideally passed as an environment variable from the host or Docker Secret
-      # For local development, uncomment below if you want to hardcode it,
-      # but prefer passing it from host environment: `GOOGLE_API_KEY=your_key docker-compose up`
-      # GOOGLE_API_KEY: "YOUR_GOOGLE_GENERATIVE_AI_API_KEY"
-    depends_on:
-      db:
-        condition: service_healthy # Ensure db is healthy before starting backend
-    networks:
-      - finops-network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # --- React Frontend Service ---
-  frontend:
-    build:
-      context: ./frontend # Build from the frontend directory
-      dockerfile: Dockerfile
-      args:
-        # Pass VITE_API_BASE_URL to the Dockerfile's build stage.
-        # This allows the Nginx config to be dynamic if needed,
-        # but primarily, it's for the React app's build process.
-        VITE_API_BASE_URL: /api/v1 # Nginx will proxy this path to the backend service
-    container_name: finops_frontend
-    ports:
-      - "5173:80" # Map host port 5173 to container port 80 (Nginx default)
-    depends_on:
-      - backend # Ensure backend is up before frontend tries to connect
-    networks:
-      - finops-network
-
 # --- Docker Networks ---
 # Define a custom bridge network for services to communicate with each other.
 networks:

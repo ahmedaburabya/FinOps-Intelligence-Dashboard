@@ -3,7 +3,16 @@ SQLAlchemy models for FinOps Intelligence Dashboard.
 These models define the structure of the data stored in the PostgreSQL database.
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Index
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    ForeignKey,
+    Index,
+    UniqueConstraint,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -26,6 +35,9 @@ class AggregatedCostData(Base):
     __table_args__ = (
         Index("idx_cost_project_time", "project", "time_period"),
         Index("idx_cost_service_time", "service", "time_period"),
+        UniqueConstraint(
+            "service", "project", "sku", "time_period", name="uq_aggregated_cost_data"
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
